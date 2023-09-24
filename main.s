@@ -73,15 +73,31 @@
 	valorAluguel:.int 0
 	# total bytes: 80 + 12 + 44 +40*3 + 1*2 + 4*5 = 278
 	# 278 bytes per record
+	p_struct: .int 0
+	tam_struct: .int 278
+
+	# check later
+	structsArray: .int 0
+	currentStruct: .int 0
+	separatorPtr: .int 0
+
+	# check later
+	temp: .int 0
 
 	opcao: .int 0
 	tipoInt: .asciz "%d"
 
+	# check later
+	ten: .int 10
 
+	# check later
+	testPrintFile: .asciz "Teste %d\n"
 
+	bufferSize: .int 0
 
 	fileName: .asciz "registros.txt"
     testFileName: .asciz "test.txt"
+	testPrintString: .asciz "Teste %s\n"
     erroGenericoArquivo: .asciz "Erro no arquivo, codigo %d\n"
 
 
@@ -142,6 +158,61 @@ _badfile:
     movl $1, %eax   
     int $0x80  
 
+atoi:
+
+	push    %ebx        # preserve working registers
+	push    %edx
+	push    %esi
+
+	mov $0, %eax        # initialize the accumulator
+_nxchr:
+	mov $0, %ebx        # clear all the bits in EBX
+	mov (%esi), %bl     # load next character in BL
+	inc %esi            # and advance source index
+
+	cmp $'0', %bl       # does character preceed '0'?
+	jl  _inval          # yes, it's not a numeral jl:jump lower
+	cmp $'9', %bl       # does character follow '9'?
+	jg  _inval          # yes, it's not a numeral jg:jump greater
+
+	sub $'0', %bl       # else convert numeral to int
+	mull ten            # multiply accumulator by ten. %eax * 10
+	add %ebx, %eax      # and then add the new integer
+	jmp _nxchr          # go back for another numeral
+_inval:
+   pop  %esi            # recover saved registers
+   pop  %edx
+   pop  %ebx
+   RET
+
+# return buffer size at %eax
+_getBufferSize:
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+
+
+	movl $0, %eax
+	movl $buffer, %ebx
+	movl $150, %ecx
+	movl $0, %edx
+	
+_gbsLoop:
+	cmpl (%ebx), %eax
+	je _gbsEnd
+
+	incl %edx
+	addl $1, %ebx
+	jmp _gbsLoop
+
+_gbsEnd:
+	movl %edx, %eax
+	popl %edx
+	popl %ecx
+	popl %ebx
+
+	RET
+
 _abreArquivoRDWR:
     # open file as rdwr
     movl $5, %eax          # sys call for open
@@ -184,11 +255,11 @@ _writeBufferToTestFile:
     movl $4, %eax              # system call for write
     movl testFileHandle, %ebx  # file handle
     movl $buffer, %ecx         # buffer
-    movl $150, %edx            # buffer length
+    movl bufferSize, %edx      # buffer length
     int $0x80                  # call kernel
 
     test %eax,%eax             # check for an error, if %eax is neg
-    js _badfile                 # if error
+    js _badfile                # if error
     RET
 
 _lerProximoRegistro:
@@ -202,15 +273,184 @@ _lerProximoRegistro:
     test %eax,%eax        # check for an error, if %eax is neg
     js _badfile           # if error
 
-    call _writeBufferToTestFile
-
     RET
 
+_AlocaMemoria:
+	# memory allocation
+	movl $tam_struct, %eax
+	call malloc
+	movl %eax, p_struct
+
+	# save pointer to array of structs
+	movl structsArray, %ebx
+	addl currentStruct, %ebx
+	movl p_struct, %ebx
+	addl $4, currentStruct
+	
+	RET
+
+_getDataRef:
+	pushl %eax
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+
+	movl $buffer, %ebx
+	movl $'|', %eax
+	movl $0, %ecx
+	movl separatorPtr, %edx
+_gdrLoop:
+	cmpl $150, %ecx
+	je _gdrEnd
+
+	movl %ecx, temp
+	cmpl %eax, (%ebx)
+	jne _next
+
+	movl %ecx, (%edx)
+	addl $4, %edx
+	incl %ecx
+	addl $1, %ebx
+	jmp _gdrLoop
+
+_next:
+	incl %ecx
+	addl $1, %ebx
+	jmp _gdrLoop
+
+_gdrEnd:
+	movl %edx, separatorPtr
+	popl %edx
+	popl %ecx
+	popl %ebx
+	popl %eax
+	RET
+
+
+
+CopyStringToStruct:
+	pushl %eax
+	pushl %ebx
+
+	movl $buffer, %ebx
+	movl $'|', %eax
+_cstsCompare:
+	cmpl (%ebx), %eax
+	je _cstsEnd
+
+	movl (%ebx), %edx
+	addl $1, %ebx
+	addl $1, %edx
+	jmp _cstsCompare
+_cstsEnd:
+	popl %ebx
+	popl %eax
+	RET
+
+_copyStr:
+	pushl %eax
+	pushl %ebx
+
+	# pushl %edx  # considering edx is ptr to struct
+
+
+	movl p_struct, %edi
+	movl $124, %eax
+	movl $buffer, %esi
+_csLoop:
+	# pq nao funciona essa comparacaos?
+	cmpl (%esi), %eax
+	je _csEnd
+
+	# copy char from buffer to struct
+	# nao copia??
+	movl (%esi), %edi
+	# next char and loop
+	addl $1, %esi
+	addl $1, %edi
+	jmp _csLoop
+_csEnd:
+	popl %esi
+	popl %eax
+
+	RET
+
+
+_PassaDadosParaStruct:
+	movl p_struct, %edx
+	
+	# prob remove later not used
+	# get data separator '|' reference for each data in buffer 
+	#call _getDataRef
+
+	# copy string from buffer and pass to struct at %edx
+	#call CopyStringToStruct
+	call _copyStr
+
+	# remove later
+	#movl p_struct, %eax
+	#pushl %eax
+	#pushl $testPrintString
+	#call printf
+	#addl $8, %esp
+	
+	RET
+
+
+
+CarregaRegistroNaMemoria:
+	call _AlocaMemoria
+	call _PassaDadosParaStruct
+
+	RET 
+
+
 CarregarRegistrosDoDisco:
-    # open "registros.txt" for rd wr and return the file handle at 'fileHandle'
+	# como saber qnts registros tem?
+	# num de registros na 1 linha? 'N\n'?
+	# ou ler um registro, andar o ponteiro pra frente, ve se tem algo
+	# se tiver le prox, se n tiver para?
+	
+	# open "registros.txt" for rd wr and return the file handle at 'fileHandle'
     call _abreArquivoRDWR
     # read the next record and hold it in 'buffer'
     call _lerProximoRegistro
+
+	# get buffer size and store at eax
+	call _getBufferSize
+	movl %eax, bufferSize
+
+	# print for debug
+	pushl %eax
+	pushl $testPrintFile
+	call printf
+	addl $8, %esp
+
+	call _getBufferSize
+	movl %eax, bufferSize
+
+	# print for debug
+	pushl %eax
+	pushl $testPrintFile
+	call printf
+	addl $8, %esp
+
+	call _getBufferSize
+	movl %eax, bufferSize
+
+	# print for debug
+	pushl %eax
+	pushl $testPrintFile
+	call printf
+	addl $8, %esp
+
+
+	#load buffer info to memory
+	call CarregaRegistroNaMemoria
+
+	# escreve em test.txt para fim de teste
+    call _writeBufferToTestFile
+
 
 	# close the file
 	call _fechaArquivos
