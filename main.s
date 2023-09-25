@@ -80,6 +80,7 @@
 	structsArray: .int 0
 	currentStruct: .int 0
 	separatorPtr: .int 0
+	structByteOffset: .int 0
 
 	# check later
 	temp: .int 0
@@ -293,54 +294,23 @@ _AlocaMemoria:
 	
 	RET
 
-_getDataRef:
-	pushl %eax
-	pushl %ebx
-	pushl %ecx
-	pushl %edx
-
-	movl $buffer, %ebx
-	movl $'|', %eax
-	movl $0, %ecx
-	movl separatorPtr, %edx
-_gdrLoop:
-	cmpl $150, %ecx
-	je _gdrEnd
-
-	movl %ecx, temp
-	cmpl %eax, (%ebx)
-	jne _next
-
-	movl %ecx, (%edx)
-	addl $4, %edx
-	incl %ecx
-	addl $1, %ebx
-	jmp _gdrLoop
-
-_next:
-	incl %ecx
-	addl $1, %ebx
-	jmp _gdrLoop
-
-_gdrEnd:
-	movl %edx, separatorPtr
-	popl %edx
-	popl %ecx
-	popl %ebx
-	popl %eax
-	RET
-
 
 # FUNCINAODNADO!!!!!!!!!!!!!
+# copies string until a '|' is found
+# from esi to edi
+# can be offseted by passing int in eax
+# also holds the final offset in ebx
 CopyStringToStruct:
 	pushl %eax
 	pushl %edi
 	pushl %esi
 	
-	leal p_struct, %edi
 	leal buffer, %esi
+	leal p_struct, %edi
+	addl %ebx, %esi
 _cstsCompare:
 	lodsb
+	incl %ebx
 	cmpb $124, %al
 	je _cstsEnd
 	stosb
@@ -354,23 +324,36 @@ _cstsEnd:
 
 
 _PassaDadosParaStruct:
-	movl p_struct, %edx
-	
-	# prob remove later not used
-	# get data separator '|' reference for each data in buffer 
-	#call _getDataRef
+	# struct is as follows:
+	# nome: 20chars
+	# cpf: 11chars
+	# celular: 11chars
+	# tipoImovel: int
+	# enderecoCdd: 10chars
+	# enderecoBrr: 10chars
+	# enderecoRua: 10chars
+	# enderecoNum: int
+	# numQuartos: int
+	# numSuites: int
+	# contembcsg: int
+	# metragem: int
+	# valorAluguel: int
 
-	# copy string from buffer and pass to struct at %edx
-	call CopyStringToStruct
-	#call _copyStr
 
-	# remove later
-	#movl p_struct, %eax
-	#pushl %eax
-	#pushl $testPrintString
-	#call printf
-	#addl $8, %esp
-	
+	# p_struct always hold the last struct allocated
+	# currently passing buffer and p_struct inside the function
+	# leal buffer, %esi
+	# leal p_struct, %edi
+	movl $0, %ebx
+	call CopyStringToStruct      
+	movl %ebx, structByteOffset
+
+	# debug, read from buffer
+	pushl $p_struct
+	pushl $testPrintString
+	call printf
+	addl $8, %esp
+
 	RET
 
 
