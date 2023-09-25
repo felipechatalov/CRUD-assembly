@@ -61,20 +61,20 @@
 	nome:        .space  80  # 20 char's
 	cpf: 		 .space  12  # 11 char's 
 	celular:     .space  44  # 11 char's
-	tipoImovel:  .byte 00000000  # 1 byte 0=casa, 1=ap
+	tipoImovel:  .int 0 	 # 1 byte 0=casa, 1=ap
 	enderecoCdd: .space  40  # 10 char's
 	enderecoBrr: .space  40  # 10 char's
 	enderecoRua: .space  40  # 10 char's
-	enderecoNum: .int 0 # 4 bytes each int
+	enderecoNum: .int 0 	 # 4 bytes each int
 	numQuartos:  .int 0
 	numSuites:   .int 0
-	contembcsg:  .byte 00000000 # 4 ultimos bits usado para banheiro, cozinha, sala e garagem
+	contembcsg:  .int 0      # 4 ultimos bits usado para banheiro, cozinha, sala e garagem
 	metragem:    .int 0
 	valorAluguel:.int 0
-	# total bytes: 80 + 12 + 44 +40*3 + 1*2 + 4*5 = 278
-	# 278 bytes per record
+	# total bytes: 80 + 12 + 44 +40*3 + 4*2 + 4*5 = 284
+	# 284 bytes per record
 	p_struct: .int 0
-	tam_struct: .int 278
+	tam_struct: .int 284
 
 	# check later
 	structsArray: .int 0
@@ -85,7 +85,6 @@
 	temp: .int 0
 
 	opcao: .int 0
-	tipoInt: .asciz "%d"
 
 	# check later
 	ten: .int 10
@@ -95,11 +94,16 @@
 
 	bufferSize: .int 0
 
+
+	tipoInt: .asciz "%d"
+	tipoString: .asciz "%s"
+
+	debugInserir: .asciz "Nome: %s\nCPF: %s\nCelular: %s\nTipo do imovel: %d\nEndereco: %s, %s, %s, %d\nNumero de quartos: %d\nNumero de suites: %d\nContem banheiro, cozinha, sala e garagem: %d\nMetragem: %d\nValor do aluguel: %d\n"
+
 	fileName: .asciz "registros.txt"
     testFileName: .asciz "test.txt"
 	testPrintString: .asciz "Teste %s\n"
     erroGenericoArquivo: .asciz "Erro no arquivo, codigo %d\n"
-
 
 .section .bss
     
@@ -327,53 +331,26 @@ _gdrEnd:
 	RET
 
 
-
+# FUNCINAODNADO!!!!!!!!!!!!!
 CopyStringToStruct:
 	pushl %eax
-	pushl %ebx
-
-	movl $buffer, %ebx
-	movl $'|', %eax
+	pushl %edi
+	pushl %esi
+	
+	leal p_struct, %edi
+	leal buffer, %esi
 _cstsCompare:
-	cmpl (%ebx), %eax
+	lodsb
+	cmpb $124, %al
 	je _cstsEnd
-
-	movl (%ebx), %edx
-	addl $1, %ebx
-	addl $1, %edx
+	stosb
 	jmp _cstsCompare
 _cstsEnd:
-	popl %ebx
-	popl %eax
-	RET
-
-_copyStr:
-	pushl %eax
-	pushl %ebx
-
-	# pushl %edx  # considering edx is ptr to struct
-
-
-	movl p_struct, %edi
-	movl $124, %eax
-	movl $buffer, %esi
-_csLoop:
-	# pq nao funciona essa comparacaos?
-	cmpl (%esi), %eax
-	je _csEnd
-
-	# copy char from buffer to struct
-	# nao copia??
-	movl (%esi), %edi
-	# next char and loop
-	addl $1, %esi
-	addl $1, %edi
-	jmp _csLoop
-_csEnd:
 	popl %esi
+	popl %edi
 	popl %eax
-
 	RET
+
 
 
 _PassaDadosParaStruct:
@@ -384,8 +361,8 @@ _PassaDadosParaStruct:
 	#call _getDataRef
 
 	# copy string from buffer and pass to struct at %edx
-	#call CopyStringToStruct
-	call _copyStr
+	call CopyStringToStruct
+	#call _copyStr
 
 	# remove later
 	#movl p_struct, %eax
@@ -419,30 +396,12 @@ CarregarRegistrosDoDisco:
 	# get buffer size and store at eax
 	call _getBufferSize
 	movl %eax, bufferSize
-
 	# print for debug
 	pushl %eax
 	pushl $testPrintFile
 	call printf
 	addl $8, %esp
 
-	call _getBufferSize
-	movl %eax, bufferSize
-
-	# print for debug
-	pushl %eax
-	pushl $testPrintFile
-	call printf
-	addl $8, %esp
-
-	call _getBufferSize
-	movl %eax, bufferSize
-
-	# print for debug
-	pushl %eax
-	pushl $testPrintFile
-	call printf
-	addl $8, %esp
 
 
 	#load buffer info to memory
@@ -456,6 +415,131 @@ CarregarRegistrosDoDisco:
 	call _fechaArquivos
 
     RET
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PegarInput:
+	pushl	$nome
+	pushl	$tipoString
+	call	scanf
+	add $8, %esp
+
+	pushl	$cpf
+	pushl	$tipoString
+	call	scanf
+	add $8, %esp
+
+	pushl	$celular
+	pushl	$tipoString
+	call	scanf
+	add $8, %esp
+
+	pushl	$tipoImovel
+	pushl	$tipoInt
+	call	scanf
+	add $8, %esp
+
+	pushl	$enderecoCdd
+	pushl	$tipoString
+	call	scanf
+	add $8, %esp
+
+	pushl	$enderecoBrr
+	pushl	$tipoString
+	call	scanf
+	add $8, %esp
+
+	pushl	$enderecoRua
+	pushl	$tipoString
+	call	scanf
+	add $8, %esp
+
+	pushl	$enderecoNum
+	pushl	$tipoInt
+	call	scanf
+	add $8, %esp
+
+	pushl	$numQuartos
+	pushl	$tipoInt
+	call	scanf
+	add $8, %esp
+
+	pushl	$numSuites
+	pushl	$tipoInt
+	call	scanf
+	add $8, %esp
+
+	pushl	$contembcsg
+	pushl	$tipoInt
+	call	scanf
+	add $8, %esp
+
+	pushl	$metragem
+	pushl	$tipoInt
+	call	scanf
+	add $8, %esp
+
+	pushl	$valorAluguel
+	pushl	$tipoInt
+	call	scanf
+	add $8, %esp
+
+	# debug
+	
+	pushl $valorAluguel
+	pushl $metragem
+	pushl $contembcsg
+	pushl $numSuites
+	pushl $numQuartos
+	pushl $enderecoNum
+	pushl $enderecoRua
+	pushl $enderecoBrr
+	pushl $enderecoCdd
+	pushl $tipoImovel
+	pushl $celular
+	pushl $cpf
+	pushl $nome
+	pushl $debugInserir
+	call printf
+	add $56, %esp
+
+
+	RET
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -520,6 +604,9 @@ Inserir:
 	pushl	$inserirTexto
 	call	printf
 	add $4, %esp
+
+	call PegarInput
+
 	RET
 
 Remover:
