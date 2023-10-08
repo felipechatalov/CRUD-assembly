@@ -5,9 +5,8 @@
 # 1. crud basico para imoveis, insercao, remocao, consulta,
 # gravar cadastro, recuparar cadastro e relatorio de registros
 # 2. lista encadeada dinamica usando malloc para armazenar registros
-# 3. registro: nome, cpf, celular, tipo do imovel(casa ou ap), endereco
-# (cidade bairro rua e numero), num de quartos e suites, se tem banheiro
-# social cozinha sala e garagem, metragem total e valor do aluguel 
+# 3. registro: nome, celular, casa ou ap, endereco(cidade e bairro), num quartos
+# (simples + suites), garagem(sim ou nao), metragem total, valor do aluguel 
 # 4. consultas feitas por numero de comodos.
 # 5. relatorio deve mostrar todos registros de forma ordenada
 # 6. a remocao deve liberar o espaco de memoria alocada (pode se usar free)
@@ -59,28 +58,28 @@
 
 	# struct para registro
 	nome:        .space  80  # 20 char's
-	cpf: 		 .space  12  # 11 char's 
 	celular:     .space  44  # 11 char's
 	tipoImovel:  .int 0 	 # 1 byte 0=casa, 1=ap
 	enderecoCdd: .space  40  # 10 char's
 	enderecoBrr: .space  40  # 10 char's
-	enderecoRua: .space  40  # 10 char's
-	enderecoNum: .int 0 	 # 4 bytes each int
 	numQuartos:  .int 0
 	numSuites:   .int 0
-	contembcsg:  .int 0      # 4 ultimos bits usado para banheiro, cozinha, sala e garagem
+	cntGaragem:  .int 0      # 4 ultimos bits usado para banheiro, cozinha, sala e garagem
 	metragem:    .int 0
 	valorAluguel:.int 0
-	# total bytes: 80 + 12 + 44 +40*3 + 4*2 + 4*5 = 284
-	# 284 bytes per record
+	proximoRegistro: .int 0
+
+	# total bytes: 80 + 44 + 4 + 40 + 40 + 4 + 4 + 4 + 4 + 4 + 4
+	# 232 bytes per record
 	p_struct: .int 0
-	tam_struct: .int 284
+	tam_struct: .int 232
 
 	# check later
 	structsArray: .int 0
 	currentStruct: .int 0
 	separatorPtr: .int 0
 	structByteOffset: .int 0
+	bufferByteOffset: .int 0
 
 	# check later
 	temp: .int 0
@@ -104,6 +103,7 @@
 	fileName: .asciz "registros.txt"
     testFileName: .asciz "test.txt"
 	testPrintString: .asciz "Teste %s\n"
+	testPrintInt: .asciz "Teste %d\n"
     erroGenericoArquivo: .asciz "Erro no arquivo, codigo %d\n"
 
 .section .bss
@@ -164,11 +164,12 @@ _badfile:
     int $0x80  
 
 atoi:
-
-	push    %ebx        # preserve working registers
-	push    %edx
+	push    %edx        # preserve working registers
 	push    %esi
+	push    %edi
 
+	mov $0, %edi
+	
 	mov $0, %eax        # initialize the accumulator
 _nxchr:
 	mov $0, %ebx        # clear all the bits in EBX
@@ -183,11 +184,14 @@ _nxchr:
 	sub $'0', %bl       # else convert numeral to int
 	mull ten            # multiply accumulator by ten. %eax * 10
 	add %ebx, %eax      # and then add the new integer
+	incl %edi
 	jmp _nxchr          # go back for another numeral
 _inval:
+   movl %edi, %ebx
+   pop  %edi
    pop  %esi            # recover saved registers
    pop  %edx
-   pop  %ebx
+
    RET
 
 # return buffer size at %eax
@@ -280,34 +284,36 @@ _lerProximoRegistro:
 
     RET
 
-_AlocaMemoria:
+_AlocaMemoriaParaRegistro:
 	# memory allocation
-	movl $tam_struct, %eax
+	pushl tam_struct
 	call malloc
 	movl %eax, p_struct
+	add $4, %esp
 
+	# dont do this. Supossed to use linked list
 	# save pointer to array of structs
-	movl structsArray, %ebx
-	addl currentStruct, %ebx
-	movl p_struct, %ebx
-	addl $4, currentStruct
+	#movl structsArray, %ebx
+	#addl currentStruct, %ebx
+	#movl p_struct, %ebx
+	#addl $4, currentStruct
 	
 	RET
 
 
-# FUNCINAODNADO!!!!!!!!!!!!!
 # copies string until a '|' is found
 # from esi to edi
-# can be offseted by passing int in eax
-# also holds the final offset in ebx
+# can be offseted by ebx and ecx, in esi and edi
+# also holds the final offset in ebx and ecx
 CopyStringToStruct:
 	pushl %eax
 	pushl %edi
 	pushl %esi
 	
 	leal buffer, %esi
-	leal p_struct, %edi
+	movl p_struct, %edi
 	addl %ebx, %esi
+	addl %ecx, %edi
 _cstsCompare:
 	lodsb
 	incl %ebx
@@ -324,42 +330,167 @@ _cstsEnd:
 
 
 _PassaDadosParaStruct:
+
+
 	# struct is as follows:
 	# nome: 20chars
-	# cpf: 11chars
 	# celular: 11chars
 	# tipoImovel: int
 	# enderecoCdd: 10chars
 	# enderecoBrr: 10chars
-	# enderecoRua: 10chars
-	# enderecoNum: int
 	# numQuartos: int
 	# numSuites: int
-	# contembcsg: int
+	# cntGaragem: int
 	# metragem: int
 	# valorAluguel: int
+	# ptr
 
+	# using 71 bytes in total in memory
+	# ignoring ptr to the next, so we have 75 bytes in total with ptr
 
 	# p_struct always hold the last struct allocated
 	# currently passing buffer and p_struct inside the function
 	# leal buffer, %esi
 	# leal p_struct, %edi
-	movl $0, %ebx
-	call CopyStringToStruct      
-	movl %ebx, structByteOffset
 
+
+	# read from buffer until "|" is found
+	# in this case we reed 'name'
+	# 20 characters total, 20bytes offset in struct
+	movl $0, %ebx      # offset in buffer
+	movl $0, %ecx      # offset in struct
+	call CopyStringToStruct      
+	movl %ebx, bufferByteOffset
+	movl %ecx, structByteOffset
+	
 	# debug, read from buffer
-	pushl $p_struct
+	pushl p_struct
 	pushl $testPrintString
 	call printf
 	addl $8, %esp
+
+	# read the phone from buffer
+	movl bufferByteOffset, %ebx
+	movl $20, %ecx			   # 20 = nome
+	call CopyStringToStruct    # ... + celular
+	movl %ebx, bufferByteOffset
+	movl %ecx, structByteOffset
+
+	pushl p_struct
+	pushl $testPrintString
+	call printf
+	addl $8, %esp
+
+	# nao temos mais RG
+	#movl bufferByteOffset, %ebx
+	#movl $31, %ecx              # 31 = nome + celular
+	#call CopyStringToStruct     # ... + rg
+	#movl %ebx, bufferByteOffset
+	#movl %ecx, structByteOffset
+
+	# apenas para printar na tela
+	pushl p_struct
+	pushl $testPrintString
+	call printf
+	addl $8, %esp
+
+	# copia um numero ate o proximo '|'
+	# transforma chars em inteiro e guarda na struct
+	pushl %esi
+	leal buffer, %esi           # 31 = nome + celular
+	addl bufferByteOffset, %esi	# ... + tipo = ap/casa
+	call atoi
+	popl %esi
+	incl %ebx
+	addl %ebx, bufferByteOffset
+	movl p_struct, %edx
+	movl %eax, 31(%edx)     #int to pos 31 in struct
+
+	# apenas para printar na tela
+	pushl %eax
+	pushl $testPrintInt
+	call printf
+	addl $8, %esp
+
+
+	movl bufferByteOffset, %ebx
+	movl $35, %ecx              # 35 = nome + celular + tipo 
+	call CopyStringToStruct     # ... + cidade
+	movl %ebx, bufferByteOffset
+	movl %ecx, structByteOffset
+
+
+
+	movl bufferByteOffset, %ebx
+	movl $45, %ecx              # 45 = nome + celular + tipo + cidade
+	call CopyStringToStruct     # ... + bairro
+	movl %ebx, bufferByteOffset
+	movl %ecx, structByteOffset
+
+
+	pushl %esi
+	leal buffer, %esi           # 55 = nome + celular + tipo + cidade + bairro
+	addl bufferByteOffset, %esi	# ... + quartos
+	call atoi
+	popl %esi
+	incl %ebx
+	addl %ebx, bufferByteOffset
+	movl p_struct, %edx
+	movl %eax, 55(%edx)     #int to pos 31 in struct
+
+	pushl %esi
+	leal buffer, %esi           # 59 = nome + celular + tipo + cidade + bairro + quartos
+	addl bufferByteOffset, %esi	# ... + suites
+	call atoi
+	popl %esi
+	incl %ebx
+	addl %ebx, bufferByteOffset
+	movl p_struct, %edx
+	movl %eax, 59(%edx)     #int to pos 59 in struct
+
+	pushl %esi
+	leal buffer, %esi           # 63 = nome + celular + tipo + cidade + bairro + quartos + suites
+	addl bufferByteOffset, %esi	# ... + cntGaragem
+	call atoi
+	popl %esi
+	incl %ebx
+	addl %ebx, bufferByteOffset
+	movl p_struct, %edx
+	movl %eax, 63(%edx)     #int to pos 63 in struct
+
+
+	pushl %esi
+	leal buffer, %esi           # 67 = nome + celular + tipo + cidade + bairro + quartos + suites
+	addl bufferByteOffset, %esi	# ... + metragem
+	call atoi
+	popl %esi
+	incl %ebx
+	addl %ebx, bufferByteOffset
+	movl p_struct, %edx
+	movl %eax, 67(%edx)     #int to pos 67 in struct
+
+
+	pushl %esi
+	leal buffer, %esi           # 71 = nome + celular + tipo + cidade + bairro + quartos + suites
+	addl bufferByteOffset, %esi	# ... + valoraluguel
+	call atoi
+	popl %esi
+	incl %ebx
+	addl %ebx, bufferByteOffset
+	movl p_struct, %edx
+	movl %eax, 71(%edx)     #int to pos 71 in struct
+
+
+	# last we need a pointer to the next record
+
+
 
 	RET
 
 
 
 CarregaRegistroNaMemoria:
-	call _AlocaMemoria
+	call _AlocaMemoriaParaRegistro
 	call _PassaDadosParaStruct
 
 	RET 
@@ -424,11 +555,6 @@ PegarInput:
 	call	scanf
 	add $8, %esp
 
-	pushl	$cpf
-	pushl	$tipoString
-	call	scanf
-	add $8, %esp
-
 	pushl	$celular
 	pushl	$tipoString
 	call	scanf
@@ -449,16 +575,6 @@ PegarInput:
 	call	scanf
 	add $8, %esp
 
-	pushl	$enderecoRua
-	pushl	$tipoString
-	call	scanf
-	add $8, %esp
-
-	pushl	$enderecoNum
-	pushl	$tipoInt
-	call	scanf
-	add $8, %esp
-
 	pushl	$numQuartos
 	pushl	$tipoInt
 	call	scanf
@@ -469,7 +585,7 @@ PegarInput:
 	call	scanf
 	add $8, %esp
 
-	pushl	$contembcsg
+	pushl	$cntGaragem
 	pushl	$tipoInt
 	call	scanf
 	add $8, %esp
@@ -488,16 +604,13 @@ PegarInput:
 	
 	pushl $valorAluguel
 	pushl $metragem
-	pushl $contembcsg
+	pushl $cntGaragem
 	pushl $numSuites
 	pushl $numQuartos
-	pushl $enderecoNum
-	pushl $enderecoRua
 	pushl $enderecoBrr
 	pushl $enderecoCdd
 	pushl $tipoImovel
 	pushl $celular
-	pushl $cpf
 	pushl $nome
 	pushl $debugInserir
 	call printf
