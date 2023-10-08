@@ -75,7 +75,7 @@
 	tam_struct: .int 232
 
 	# check later
-	structsArray: .int 0
+	firstStruct: .int 0
 	currentStruct: .int 0
 	separatorPtr: .int 0
 	structByteOffset: .int 0
@@ -94,6 +94,8 @@
 
 	bufferSize: .int 0
 
+	# check later
+	qtdRecords: .int 0
 
 	tipoInt: .asciz "%d"
 	tipoString: .asciz "%s"
@@ -290,13 +292,6 @@ _AlocaMemoriaParaRegistro:
 	call malloc
 	movl %eax, p_struct
 	add $4, %esp
-
-	# dont do this. Supossed to use linked list
-	# save pointer to array of structs
-	#movl structsArray, %ebx
-	#addl currentStruct, %ebx
-	#movl p_struct, %ebx
-	#addl $4, currentStruct
 	
 	RET
 
@@ -330,8 +325,6 @@ _cstsEnd:
 
 
 _PassaDadosParaStruct:
-
-
 	# struct is as follows:
 	# nome: 20chars
 	# celular: 11chars
@@ -487,11 +480,38 @@ _PassaDadosParaStruct:
 
 	RET
 
+_InsereRegistro:
+	# eax holds the pointer to the last record
+	# p_struct holds the pointer to the new record
+	movl $p_struct, %eax   # 71 is the offset to the pointer
+	RET
 
+
+_loopFinalLista:
+	addl $71, %eax
+	cmpl $0, (%eax)
+	je _backFinalLista
+	movl (%eax), %eax
+	jmp _loopFinalLista
+
+_InsereRegistroFinal:
+	# if firstStruct == 0, then this is the first record
+	# else: insert at the end of the list
+
+	movl firstStruct, %eax
+	cmpl $0, %eax
+	jne _loopFinalLista   # eax holds ptr to last struct
+_backFinalLista:
+	call _InsereRegistro
+	RET
 
 CarregaRegistroNaMemoria:
 	call _AlocaMemoriaParaRegistro
 	call _PassaDadosParaStruct
+	call _InsereRegistroFinal
+	
+	# caso seja o primeiro registro, nao temos um ponteiro
+	# caso tenha, entao o ultimo registro aponta para este novo
 
 	RET 
 
@@ -504,8 +524,13 @@ CarregarRegistrosDoDisco:
 	
 	# open "registros.txt" for rd wr and return the file handle at 'fileHandle'
     call _abreArquivoRDWR
+
+
+	
+
     # read the next record and hold it in 'buffer'
     call _lerProximoRegistro
+
 
 	# get buffer size and store at eax
 	call _getBufferSize
