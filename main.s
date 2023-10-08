@@ -197,6 +197,7 @@ _inval:
    RET
 
 # return buffer size at %eax
+# prob need to be rewriten
 _getBufferSize:
 	pushl %ebx
 	pushl %ecx
@@ -273,6 +274,7 @@ _writeBufferToTestFile:
     js _badfile                # if error
     RET
 
+# can be offseted by ebx
 _lerProximoRegistro:
     # read the next record
     movl $3, %eax          # sys call for read
@@ -515,6 +517,14 @@ CarregaRegistroNaMemoria:
 
 	RET 
 
+_adicionarDesvio:
+	# add offset to file pointer
+	movl $19, %eax
+	movl $fileHandle, %ebx
+	movl $9, %ecx
+	movl $0, %edx
+	int $0x80
+	RET
 
 CarregarRegistrosDoDisco:
 	# como saber qnts registros tem?
@@ -526,11 +536,11 @@ CarregarRegistrosDoDisco:
     call _abreArquivoRDWR
 
 
-	
 
+	# offset the file pointer	
+	call _adicionarDesvio
     # read the next record and hold it in 'buffer'
     call _lerProximoRegistro
-
 
 	# get buffer size and store at eax
 	call _getBufferSize
@@ -541,10 +551,11 @@ CarregarRegistrosDoDisco:
 	call printf
 	addl $8, %esp
 
-
-
 	#load buffer info to memory
 	call CarregaRegistroNaMemoria
+
+	
+
 
 	# escreve em test.txt para fim de teste
     call _writeBufferToTestFile
