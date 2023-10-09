@@ -31,7 +31,7 @@
 # use \0 for null characters?
 
 
-
+# https://syscalls32.paolostivanin.com/
 
 
 
@@ -89,10 +89,15 @@
 	# check later
 	ten: .int 10
 
+	#check later
+	byteNull:  .int 0
+	byteSpace: .int 20
+
 	# check later
 	testPrintFile: .asciz "Teste %d\n"
 
 	bufferSize: .int 0
+	bufferMaxSize: .int 87
 
 	# check later
 	qtdRecords: .int 0
@@ -225,6 +230,22 @@ _gbsEnd:
 
 	RET
 
+memset:
+	pushl %eax
+	pushl %ecx
+	pushl %esi
+	#leal buffer, %edi
+	movl bufferMaxSize, %ecx
+	movb byteSpace, %al
+_memsetCopy:
+	stosb   # copia al para edi
+	loop _memsetCopy
+_memsetEnd:
+	popl %esi
+	popl %ecx
+	popl %eax
+	RET
+
 _abreArquivoRDWR:
     # open file as rdwr
     movl $5, %eax          # sys call for open
@@ -255,7 +276,7 @@ _fechaArquivos:
 _writeBufferToTestFile:
     movl $5, %eax              # sys call for open
     movl $testFileName, %ebx   # file name
-    movl $02, %ecx             # flags, read write
+    movl $02002, %ecx             # flags, read write
     movl $0744, %edx           # permissions
     int $0x80 
 
@@ -267,7 +288,7 @@ _writeBufferToTestFile:
     movl $4, %eax              # system call for write
     movl testFileHandle, %ebx  # file handle
     movl $buffer, %ecx         # buffer
-    movl bufferSize, %edx      # buffer length
+    movl bufferMaxSize, %edx      # buffer length
     int $0x80                  # call kernel
 
     test %eax,%eax             # check for an error, if %eax is neg
@@ -277,10 +298,15 @@ _writeBufferToTestFile:
 # can be offseted by ebx
 _lerProximoRegistro:
     # read the next record
+	movl $87, %ecx
+	leal buffer, %edi
+	call memset
+
+
     movl $3, %eax          # sys call for read
     movl fileHandle, %ebx  # file handle
     movl $buffer, %ecx     # buffer
-    movl $150, %edx        # bytes to read
+    movl $87, %edx        # bytes to read
     int $0x80              # call kernel
 
     test %eax,%eax        # check for an error, if %eax is neg
@@ -517,15 +543,6 @@ CarregaRegistroNaMemoria:
 
 	RET 
 
-_adicionarDesvio:
-	# add offset to file pointer
-	movl $19, %eax
-	movl $fileHandle, %ebx
-	movl $9, %ecx
-	movl $0, %edx
-	int $0x80
-	RET
-
 CarregarRegistrosDoDisco:
 	# como saber qnts registros tem?
 	# num de registros na 1 linha? 'N\n'?
@@ -536,29 +553,26 @@ CarregarRegistrosDoDisco:
     call _abreArquivoRDWR
 
 
-
-	# offset the file pointer	
-	call _adicionarDesvio
     # read the next record and hold it in 'buffer'
     call _lerProximoRegistro
-
-	# get buffer size and store at eax
-	call _getBufferSize
-	movl %eax, bufferSize
-	# print for debug
-	pushl %eax
-	pushl $testPrintFile
-	call printf
-	addl $8, %esp
-
-	#load buffer info to memory
+	
 	call CarregaRegistroNaMemoria
 
 	
+	call _writeBufferToTestFile
+here:
 
-
-	# escreve em test.txt para fim de teste
+    call _lerProximoRegistro
+	call CarregaRegistroNaMemoria
     call _writeBufferToTestFile
+
+
+	call _lerProximoRegistro
+	call CarregaRegistroNaMemoria
+	call _writeBufferToTestFile
+
+
+
 
 
 	# close the file
