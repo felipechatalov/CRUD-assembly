@@ -57,11 +57,11 @@
 	relatorioTexto: .asciz	"Relatorio de registros\n"
 
 	# struct para registro
-	nome:        .space  80  # 20 char's
-	celular:     .space  44  # 11 char's
-	tipoImovel:  .int 0 	 # 1 byte 0=casa, 1=ap
-	enderecoCdd: .space  40  # 10 char's
-	enderecoBrr: .space  40  # 10 char's
+	nome:        .space  20  # 20 char's
+	celular:     .space  11  # 11 char's
+	tipoImovel:  .int 0 	 # 4 byte 0=casa, 1=ap
+	enderecoCdd: .space  10  # 10 char's
+	enderecoBrr: .space  10  # 10 char's
 	numQuartos:  .int 0
 	numSuites:   .int 0
 	cntGaragem:  .int 0      # 4 ultimos bits usado para banheiro, cozinha, sala e garagem
@@ -69,10 +69,17 @@
 	valorAluguel:.int 0
 	proximoRegistro: .int 0
 
-	# total bytes: 80 + 44 + 4 + 40 + 40 + 4 + 4 + 4 + 4 + 4 + 4
+	# 1. total bytes: 80 + 44 + 4 + 40 + 40 + 4 + 4 + 4 + 4 + 4 + 4
 	# 232 bytes per record
+	# a conta 2. parece estar correta
+	# 2. total bytes: 20 + 11 + 4 + 10 + 10 + 4x6
+	# 79 bytes
+	# prov errado a conta de bytes.
+	# 1 char = 1 byte
+	# 1 int  = 4 byte
 	p_struct: .int 0
-	tam_struct: .int 232
+	# tam_struct: .int 232
+	tam_struct: .int 69
 
 	# check later
 	firstStruct: .int 0
@@ -106,6 +113,8 @@
 	tipoString: .asciz "%s"
 
 	debugInserir: .asciz "Nome: %s\nCPF: %s\nCelular: %s\nTipo do imovel: %d\nEndereco: %s, %s, %s, %d\nNumero de quartos: %d\nNumero de suites: %d\nContem banheiro, cozinha, sala e garagem: %d\nMetragem: %d\nValor do aluguel: %d\n"
+
+	printMemoriaAlocada: .asciz "[debug]Memoria alocada no endereco %x\n"
 
 	fileName: .asciz "registros.txt"
     testFileName: .asciz "test.txt"
@@ -314,12 +323,19 @@ _lerProximoRegistro:
 
     RET
 
+# aloca memoria igual a tam_struct
+# e guarda em p_struct
 _AlocaMemoriaParaRegistro:
 	# memory allocation
 	pushl tam_struct
 	call malloc
 	movl %eax, p_struct
 	add $4, %esp
+
+	pushl %eax
+	pushl $printMemoriaAlocada
+	call printf
+	addl $8, %esp
 	
 	RET
 
@@ -391,16 +407,6 @@ _PassaDadosParaStruct:
 	call CopyStringToStruct    # ... + celular
 	movl %ebx, bufferByteOffset
 	movl %ecx, structByteOffset
-
-
-
-	# nao temos mais RG
-	#movl bufferByteOffset, %ebx
-	#movl $31, %ecx              # 31 = nome + celular
-	#call CopyStringToStruct     # ... + rg
-	#movl %ebx, bufferByteOffset
-	#movl %ecx, structByteOffset
-
 
 
 	# copia um numero ate o proximo '|'
@@ -542,6 +548,8 @@ CarregarRegistrosDoDisco:
     call _abreArquivoRDWR
 
 
+# loads all records in registros.txt until 0 bytes is read
+# which means we dont have any more records to load
 _startRecordLoading:
 	# read next line in registros.txt
 	# number of read bytes in eax, if 0 stop loading
@@ -552,9 +560,6 @@ _startRecordLoading:
 	call _writeBufferToTestFile
 	jmp _startRecordLoading
 
-
-	#call _lerProximoRegistro
-
 _finalRecordLoading:
 
 	# close the file
@@ -563,6 +568,7 @@ _finalRecordLoading:
     RET
 
 
+CarregaRegistroDoInputParaMemoria:
 
 
 
@@ -649,11 +655,6 @@ PegarInput:
 	add $56, %esp
 
 
-	call _AlocaMemoriaParaRegistro
-
-
-
-
 	RET
 
 
@@ -711,6 +712,9 @@ Menu:
 	call	printf
 	add $4, %esp
 
+	call CarregarRegistrosDoDisco
+
+
 	pushl	$opcao
 	pushl	$tipoInt
 	call	scanf
@@ -740,6 +744,10 @@ Inserir:
 
 	call PegarInput
 
+	call _AlocaMemoriaParaRegistro
+
+	call CarregaRegistroDoInputParaMemoria
+
 	RET
 
 Remover:
@@ -759,7 +767,6 @@ Relatorio:
 	call	printf
 	add $4, %esp
 	
-	call CarregarRegistrosDoDisco
 
 	RET
 
