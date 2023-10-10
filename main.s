@@ -383,12 +383,7 @@ _PassaDadosParaStruct:
 	call CopyStringToStruct      
 	movl %ebx, bufferByteOffset
 	movl %ecx, structByteOffset
-	
-	# debug, read from buffer
-	pushl p_struct
-	pushl $testPrintString
-	call printf
-	addl $8, %esp
+
 
 	# read the phone from buffer
 	movl bufferByteOffset, %ebx
@@ -397,10 +392,7 @@ _PassaDadosParaStruct:
 	movl %ebx, bufferByteOffset
 	movl %ecx, structByteOffset
 
-	pushl p_struct
-	pushl $testPrintString
-	call printf
-	addl $8, %esp
+
 
 	# nao temos mais RG
 	#movl bufferByteOffset, %ebx
@@ -409,11 +401,7 @@ _PassaDadosParaStruct:
 	#movl %ebx, bufferByteOffset
 	#movl %ecx, structByteOffset
 
-	# apenas para printar na tela
-	pushl p_struct
-	pushl $testPrintString
-	call printf
-	addl $8, %esp
+
 
 	# copia um numero ate o proximo '|'
 	# transforma chars em inteiro e guarda na struct
@@ -426,12 +414,6 @@ _PassaDadosParaStruct:
 	addl %ebx, bufferByteOffset
 	movl p_struct, %edx
 	movl %eax, 31(%edx)     #int to pos 31 in struct
-
-	# apenas para printar na tela
-	pushl %eax
-	pushl $testPrintInt
-	call printf
-	addl $8, %esp
 
 
 	movl bufferByteOffset, %ebx
@@ -511,7 +493,7 @@ _PassaDadosParaStruct:
 _InsereRegistro:
 	# eax holds the pointer to the last record
 	# p_struct holds the pointer to the new record
-	movl $p_struct, %eax   # 71 is the offset to the pointer
+	movl $p_struct, %eax   
 	RET
 
 
@@ -533,7 +515,7 @@ _backFinalLista:
 	call _InsereRegistro
 	RET
 
-CarregaRegistroNaMemoria:
+CarregaRegistroDoBufferParaMemoria:
 	call _AlocaMemoriaParaRegistro
 	call _PassaDadosParaStruct
 	call _InsereRegistroFinal
@@ -549,31 +531,31 @@ CarregarRegistrosDoDisco:
 	# ou ler um registro, andar o ponteiro pra frente, ve se tem algo
 	# se tiver le prox, se n tiver para?
 	
+	# le e mantem o ponteiro no final da linha lida
+
+	# eax holds the number of bytes read by syscall 3 (read)
+	# so we can use it to know if there are any more records in txt
+	# readrecord, if readrecordbytes =!0 add record else stop loading
+
+
 	# open "registros.txt" for rd wr and return the file handle at 'fileHandle'
     call _abreArquivoRDWR
 
 
-    # read the next record and hold it in 'buffer'
-    call _lerProximoRegistro
-	
-	call CarregaRegistroNaMemoria
-
-	
-	call _writeBufferToTestFile
-here:
-
-    call _lerProximoRegistro
-	call CarregaRegistroNaMemoria
-    call _writeBufferToTestFile
-
-
+_startRecordLoading:
+	# read next line in registros.txt
+	# number of read bytes in eax, if 0 stop loading
 	call _lerProximoRegistro
-	call CarregaRegistroNaMemoria
+	cmpl $0, %eax
+	je _finalRecordLoading
+	call CarregaRegistroDoBufferParaMemoria
 	call _writeBufferToTestFile
+	jmp _startRecordLoading
 
 
+	#call _lerProximoRegistro
 
-
+_finalRecordLoading:
 
 	# close the file
 	call _fechaArquivos
@@ -665,6 +647,11 @@ PegarInput:
 	pushl $debugInserir
 	call printf
 	add $56, %esp
+
+
+	call _AlocaMemoriaParaRegistro
+
+
 
 
 	RET
