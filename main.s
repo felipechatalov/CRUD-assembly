@@ -112,7 +112,19 @@
 	tipoInt: .asciz "%d"
 	tipoString: .asciz "%s"
 
-	debugInserir: .asciz "Nome: %s\nCPF: %s\nCelular: %s\nTipo do imovel: %d\nEndereco: %s, %s, %s, %d\nNumero de quartos: %d\nNumero de suites: %d\nContem banheiro, cozinha, sala e garagem: %d\nMetragem: %d\nValor do aluguel: %d\n"
+	debugInserir: .asciz "Nome: %s\nCelular: %s\nTipo do imovel: %d\nEndereco: %s, %s\nNumero de quartos: %d\nNumero de suites: %d\nContem garagem: %d\nMetragem: %d\nValor do aluguel: %d\n"
+	InputPrintEntrada: .asciz "Adicionar um novo registro, digite as informaçoes abaixo\n"
+	InputPrintNome: .asciz "Nome: "
+	InputPrintCelular: .asciz "\nCelular: "
+	InputPrintImovel: .asciz "\nTipo do imovel (0 = casa, 1 = apartamento): "
+	InputPrintCidade: .asciz "\nCidade: "
+	InputPrintBairro: .asciz "\nBairro: "
+	InputPrintQuartos: .asciz "\nNumero de quartos: "
+	InputPrintSuites: .asciz "\nNumero de suites: "
+	InputPrintGaragem: .asciz "\nContem garagem (0 = nao, 1 = sim): "
+	InputPrintMetragem: .asciz "\nMetragem: "
+	InputPrintAlugel: .asciz "\nValor do aluguel: "
+
 
 	printMemoriaAlocada: .asciz "[debug]Memoria alocada no endereco %x\n"
 
@@ -135,6 +147,11 @@
 
 .globl _start
 _start:
+
+
+	# carrega os registros do txt para memoria
+	call CarregarRegistrosDoDisco
+
 	pushl	$abertura
 	call	printf
 	add $4, %esp
@@ -569,7 +586,7 @@ _finalRecordLoading:
 
 
 CarregaRegistroDoInputParaMemoria:
-
+	RET
 
 
 
@@ -588,50 +605,99 @@ CarregaRegistroDoInputParaMemoria:
 
 
 PegarInput:
+	pushl   $InputPrintNome
+	call    printf
+	add $4, %esp
+
 	pushl	$nome
 	pushl	$tipoString
 	call	scanf
 	add $8, %esp
+
+
+	pushl   $InputPrintCelular
+	call    printf
+	add $4, %esp
 
 	pushl	$celular
 	pushl	$tipoString
 	call	scanf
 	add $8, %esp
 
+
+	pushl   $InputPrintImovel
+	call    printf
+	add $4, %esp
+
 	pushl	$tipoImovel
 	pushl	$tipoInt
 	call	scanf
 	add $8, %esp
+
+
+	pushl   $InputPrintCidade
+	call    printf
+	add $4, %esp
 
 	pushl	$enderecoCdd
 	pushl	$tipoString
 	call	scanf
 	add $8, %esp
 
+
+	pushl   $InputPrintBairro
+	call    printf
+	add $4, %esp
+
 	pushl	$enderecoBrr
 	pushl	$tipoString
 	call	scanf
 	add $8, %esp
+
+
+	pushl   $InputPrintQuartos
+	call    printf
+	add $4, %esp
 
 	pushl	$numQuartos
 	pushl	$tipoInt
 	call	scanf
 	add $8, %esp
 
+
+	pushl   $InputPrintSuites
+	call    printf
+	add $4, %esp
+
 	pushl	$numSuites
 	pushl	$tipoInt
 	call	scanf
 	add $8, %esp
+
+
+	pushl   $InputPrintGaragem
+	call    printf
+	add $4, %esp
 
 	pushl	$cntGaragem
 	pushl	$tipoInt
 	call	scanf
 	add $8, %esp
 
+
+	pushl   $InputPrintMetragem
+	call    printf
+	add $4, %esp
+
 	pushl	$metragem
 	pushl	$tipoInt
 	call	scanf
 	add $8, %esp
+
+
+	pushl   $InputPrintAlugel
+	call    printf
+	add $4, %esp
 
 	pushl	$valorAluguel
 	pushl	$tipoInt
@@ -639,21 +705,20 @@ PegarInput:
 	add $8, %esp
 
 	# debug
-	
-	pushl $valorAluguel
-	pushl $metragem
-	pushl $cntGaragem
-	pushl $numSuites
-	pushl $numQuartos
+herer:
+	pushl valorAluguel
+	pushl metragem
+	pushl cntGaragem
+	pushl numSuites
+	pushl numQuartos
 	pushl $enderecoBrr
 	pushl $enderecoCdd
-	pushl $tipoImovel
+	pushl tipoImovel
 	pushl $celular
 	pushl $nome
 	pushl $debugInserir
 	call printf
-	add $56, %esp
-
+	addl $44, %esp
 
 	RET
 
@@ -711,9 +776,9 @@ Menu:
 	pushl	$opcoes
 	call	printf
 	add $4, %esp
-
-	call CarregarRegistrosDoDisco
-
+	
+	# zera a variavel opcao para evitar conflitos
+	movl $0, opcao
 
 	pushl	$opcao
 	pushl	$tipoInt
@@ -743,24 +808,24 @@ Inserir:
 	add $4, %esp
 
 	call PegarInput
-
+here:
 	call _AlocaMemoriaParaRegistro
 
 	call CarregaRegistroDoInputParaMemoria
 
-	RET
+	call Menu
 
 Remover:
 	pushl 	$removerTexto
 	call	printf
 	add $4, %esp
-	RET
+	call Menu
 
 Consultar:
 	pushl	$consultarTexto
 	call	printf
 	add $4, %esp
-	RET
+	call Menu
 
 Relatorio:
 	pushl	$relatorioTexto
@@ -768,7 +833,7 @@ Relatorio:
 	add $4, %esp
 	
 
-	RET
+	call Menu
 
 
 
