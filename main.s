@@ -79,7 +79,7 @@
 	# 1 int  = 4 byte
 	p_struct: .int 0
 	# tam_struct: .int 232
-	tam_struct: .int 69
+	tam_struct: .int 79
 
 	# check later
 	firstStruct: .int 0
@@ -528,35 +528,27 @@ _PassaDadosParaStruct:
 
 	RET
 
-_InsereRegistro:
-	# eax holds the pointer to the last record
-	# p_struct holds the pointer to the new record
-	movl $p_struct, %eax   
+
+_iriElse:
+	movl %ebx, 75(%eax)
+	movl %eax, firstStruct
 	RET
-
-
-_loopFinalLista:
-	addl $71, %eax
-	cmpl $0, (%eax)
-	je _backFinalLista
-	movl (%eax), %eax
-	jmp _loopFinalLista
-
-_InsereRegistroFinal:
+_insereRegistroInicio:
 	# if firstStruct == 0, then this is the first record
-	# else: insert at the end of the list
+	# else: insert at the start of the list
+	
+	movl firstStruct, %ebx
+	movl p_struct, %eax
 
-	movl firstStruct, %eax
-	cmpl $0, %eax
-	jne _loopFinalLista   # eax holds ptr to last struct
-_backFinalLista:
-	call _InsereRegistro
+	cmpl $0, %ebx
+	jne _iriElse
+	movl %eax, firstStruct
 	RET
 
 CarregaRegistroDoBufferParaMemoria:
 	call _AlocaMemoriaParaRegistro
 	call _PassaDadosParaStruct
-	call _InsereRegistroFinal
+	call _insereRegistroInicio
 	
 	# caso seja o primeiro registro, nao temos um ponteiro
 	# caso tenha, entao o ultimo registro aponta para este novo
@@ -580,18 +572,18 @@ CarregarRegistrosDoDisco:
     call _abreArquivoRDWR
 
 
-# loads all records in registros.txt until 0 bytes is read
-# which means we dont have any more records to load
+	# loads all records in registros.txt until 0 bytes is read
+	# which means we dont have any more records to load
 _startRecordLoading:
 	# read next line in registros.txt
 	# number of read bytes in eax, if 0 stop loading
+here2:
 	call _lerProximoRegistro
 	cmpl $0, %eax
 	je _finalRecordLoading
 	call CarregaRegistroDoBufferParaMemoria
 	call _writeBufferToTestFile
 	jmp _startRecordLoading
-
 _finalRecordLoading:
 
 	# close the file
@@ -627,7 +619,6 @@ CarregaRegistroDoInputParaMemoria:
 	leal 45(%eax), %edi
 	call CopyStringStringInputToStruct
 
-
 	# copia numQuartos, 4 bytes
 	movl numQuartos, %edx
 	movl %edx, 55(%eax)
@@ -647,13 +638,6 @@ CarregaRegistroDoInputParaMemoria:
 	# copia valorAluguel, 4 bytes
 	movl valorAluguel, %edx
 	movl %edx, 71(%eax)
-
-	# copia o ponteiro para o proximo registro
-	# adiciona no comeco (???)
-	movl firstStruct, %ebx
-	movl %ebx, 75(%eax)
-	movl %eax, firstStruct
-
 	
 	RET
 
