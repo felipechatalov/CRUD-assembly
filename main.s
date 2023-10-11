@@ -106,6 +106,8 @@
 	bufferSize: .int 0
 	bufferMaxSize: .int 87
 
+	test: .int 0
+
 	# check later
 	qtdRecords: .int 0
 
@@ -361,7 +363,7 @@ _AlocaMemoriaParaRegistro:
 # from esi to edi
 # can be offseted by ebx and ecx, in esi and edi
 # also holds the final offset in ebx and ecx
-CopyStringToStruct:
+CopyStringBufferToStruct:
 	pushl %eax
 	pushl %edi
 	pushl %esi
@@ -370,19 +372,32 @@ CopyStringToStruct:
 	movl p_struct, %edi
 	addl %ebx, %esi
 	addl %ecx, %edi
-_cstsCompare:
+_csbsCompare:
 	lodsb
 	incl %ebx
 	cmpb $124, %al
-	je _cstsEnd
+	je _csbsEnd
 	stosb
-	jmp _cstsCompare
-_cstsEnd:
+	jmp _csbsCompare
+_csbsEnd:
 	popl %esi
 	popl %edi
 	popl %eax
 	RET
 
+# need to have src and dst in %esi and %edi beforehand
+# copies until null byte is found
+CopyStringStringInputToStruct:
+	pushl %eax
+_csisCompare:
+	lodsb
+	cmpb $0, %al
+	je _csisEnd
+	stosb
+	jmp _csisCompare
+_csisEnd:
+	popl %eax
+	RET
 
 
 _PassaDadosParaStruct:
@@ -413,7 +428,7 @@ _PassaDadosParaStruct:
 	# 20 characters total, 20bytes offset in struct
 	movl $0, %ebx      # offset in buffer
 	movl $0, %ecx      # offset in struct
-	call CopyStringToStruct      
+	call CopyStringBufferToStruct      
 	movl %ebx, bufferByteOffset
 	movl %ecx, structByteOffset
 
@@ -421,7 +436,7 @@ _PassaDadosParaStruct:
 	# read the phone from buffer
 	movl bufferByteOffset, %ebx
 	movl $20, %ecx			   # 20 = nome
-	call CopyStringToStruct    # ... + celular
+	call CopyStringBufferToStruct    # ... + celular
 	movl %ebx, bufferByteOffset
 	movl %ecx, structByteOffset
 
@@ -441,7 +456,7 @@ _PassaDadosParaStruct:
 
 	movl bufferByteOffset, %ebx
 	movl $35, %ecx              # 35 = nome + celular + tipo 
-	call CopyStringToStruct     # ... + cidade
+	call CopyStringBufferToStruct     # ... + cidade
 	movl %ebx, bufferByteOffset
 	movl %ecx, structByteOffset
 
@@ -449,7 +464,7 @@ _PassaDadosParaStruct:
 
 	movl bufferByteOffset, %ebx
 	movl $45, %ecx              # 45 = nome + celular + tipo + cidade
-	call CopyStringToStruct     # ... + bairro
+	call CopyStringBufferToStruct     # ... + bairro
 	movl %ebx, bufferByteOffset
 	movl %ecx, structByteOffset
 
@@ -586,6 +601,60 @@ _finalRecordLoading:
 
 
 CarregaRegistroDoInputParaMemoria:
+	movl p_struct, %eax
+
+	# copia nome, 20 chars
+	leal nome, %esi
+	leal (%eax), %edi
+	call CopyStringStringInputToStruct
+
+	# copia telefone, 11 chars
+	leal celular, %esi
+	leal 20(%eax), %edi 
+	call CopyStringStringInputToStruct
+
+	# copia tipoImovel, 4 bytes
+	movl tipoImovel, %edx
+	movl %edx, 31(%eax)
+
+	# copia enderecoCdd, 10 chars
+	leal enderecoCdd, %esi
+	leal 35(%eax), %edi
+	call CopyStringStringInputToStruct
+
+	# copia enderecoBrr, 10 chars
+	leal enderecoBrr, %esi
+	leal 45(%eax), %edi
+	call CopyStringStringInputToStruct
+
+
+	# copia numQuartos, 4 bytes
+	movl numQuartos, %edx
+	movl %edx, 55(%eax)
+
+	# copia numSuites, 4 bytes
+	movl numSuites, %edx
+	movl %edx, 59(%eax)
+
+	# copia cntGaragem, 4 bytes
+	movl cntGaragem, %edx
+	movl %edx, 63(%eax)
+
+	# copia metragem, 4 bytes
+	movl metragem, %edx
+	movl %edx, 67(%eax)
+
+	# copia valorAluguel, 4 bytes
+	movl valorAluguel, %edx
+	movl %edx, 71(%eax)
+
+	# copia o ponteiro para o proximo registro
+	# adiciona no comeco (???)
+	movl firstStruct, %ebx
+	movl %ebx, 75(%eax)
+	movl %eax, firstStruct
+
+	
 	RET
 
 
@@ -705,7 +774,6 @@ PegarInput:
 	add $8, %esp
 
 	# debug
-herer:
 	pushl valorAluguel
 	pushl metragem
 	pushl cntGaragem
