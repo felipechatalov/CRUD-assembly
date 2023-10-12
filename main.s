@@ -147,6 +147,10 @@
 	PrintBusca: .asciz "Busca por numero de quartos\n Digite o numero de quartos simples + suites"
 	PrintRecordNotFound: .asciz "Registro nao encontrado\n"
 
+
+	PrintRemove: .asciz "Remover registro\nDigite o nome do registro a ser removido: "
+
+
 	printMemoriaAlocada: .asciz "[debug]Memoria alocada no endereco %x\n"
 
 	fileName: .asciz "registros.txt"
@@ -1009,6 +1013,7 @@ RecebeInputBusca:
 	pushl	$PrintBusca
 	call	printf
 	add $4, %esp
+	movl $0, buscaQuantidadeQuartos
 	pushl   $buscaQuantidadeQuartos
 	pushl   $tipoInt
 	call    scanf
@@ -1074,7 +1079,8 @@ _recordNotFound:
 	jmp Menu
 _recordFound:
 	call MostraRegistro
-	jmp Menu
+	call ProximoRegistro
+	jmp _searchLoop
 Consultar:
 	pushl	$consultarTexto
 	call	printf
