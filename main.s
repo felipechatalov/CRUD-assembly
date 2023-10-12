@@ -113,7 +113,7 @@
 	qtdRecords: .int 0
 
 
-	buscaQuartos: .int 0
+	buscaQuantidadeQuartos: .int 0
 
 
 
@@ -145,7 +145,7 @@
 	MostraAlugel: .asciz "Valor do aluguel: %d\n"
 
 	PrintBusca: .asciz "Busca por numero de quartos\n Digite o numero de quartos simples + suites"
-
+	PrintRecordNotFound: .asciz "Registro nao encontrado\n"
 
 	printMemoriaAlocada: .asciz "[debug]Memoria alocada no endereco %x\n"
 
@@ -814,6 +814,28 @@ CarregaRegistroDoInputParaMemoria:
 
 
 
+# considerando o registro atual em %eax
+# passa para o proximo registro e guarda em %eax
+ProximoRegistro:
+	movl 75(%eax), %eax
+	RET
+# compara se o registro atual em %eax tem o numero de quartos simples e suites
+# que a variavel buscaQuantidadeQuartos
+CompararQuartos:
+	pushl %ebx
+	pushl %ecx
+	
+	movl 55(%eax), %ebx    # quartos simples
+	movl 59(%eax), %ecx    # suites
+	addl %ebx, %ecx
+	cmpl buscaQuantidadeQuartos, %ecx
+	
+	popl %ecx
+	popl %ebx
+
+	RET
+
+
 
 
 
@@ -1028,33 +1050,50 @@ Inserir:
 	call CarregaRegistroDoInputParaMemoria
 	call _insereRegistroInicio
 
-	call Menu
+	jmp Menu
 
 Remover:
 	pushl 	$removerTexto
 	call	printf
 	add $4, %esp
-	call Menu
+	jmp Menu
 
+_recordNotFound:
+	pushl $PrintRecordNotFound
+	call printf
+	add $4, %esp
+	jmp Menu
+_recordFound:
+	call MostraRegistro
+	jmp Menu
 Consultar:
 	pushl	$consultarTexto
 	call	printf
 	add $4, %esp
 
 	# pega o numero de quartos simples + suites
-	#pushl	$PrintBusca
-	#call	printf
-	#add $4, %esp
-	#pushl   $buscaQuartos
-	#pushl   $tipoInt
-	#call    scanf
-	#add $8, %esp
-
+	# e guarda em buscaQuantidadeQuartos
+	pushl	$PrintBusca
+	call	printf
+	add $4, %esp
+	pushl   $buscaQuantidadeQuartos
+	pushl   $tipoInt
+	call    scanf
+	add $8, %esp
 
 	movl firstStruct, %eax
-	call MostraRegistro
+	cmpl $0, %eax
+	je _recordNotFound
+_searchLoop:
+	cmpl $0, %eax        # caso eax seja 0 quer dizer que acabou os registros
+	je _recordNotFound
 
-	call Menu
+	call CompararQuartos
+	je _recordFound
+	call ProximoRegistro
+	jmp _searchLoop
+
+	jmp Menu
 
 Relatorio:
 	pushl	$relatorioTexto
@@ -1062,7 +1101,7 @@ Relatorio:
 	add $4, %esp
 	
 
-	call Menu
+	jmp Menu
 
 
 
