@@ -561,6 +561,8 @@ _PassaDadosParaStruct:
 # ou seja printa 3 campoos juntos
 # necessita do ponteiro para o registro em eax
 MostraRegistro:
+	pushl %eax
+
 	leal (%eax), %esi       # nome
 	leal stringHolder, %edi 
 	movl $20, %ecx
@@ -676,7 +678,6 @@ MostraRegistro:
 
 	popl %eax               # for backup
 	addl $4, %eax
-	pushl %eax              # for backup
 
 	movl (%eax), %ebx # valorAluguel
 	pushl %ebx
@@ -1004,8 +1005,15 @@ PegarInput:
 
 
 
-
-
+RecebeInputBusca:
+	pushl	$PrintBusca
+	call	printf
+	add $4, %esp
+	pushl   $buscaQuantidadeQuartos
+	pushl   $tipoInt
+	call    scanf
+	add $8, %esp
+	RET
 
 
 
@@ -1058,6 +1066,7 @@ Remover:
 	add $4, %esp
 	jmp Menu
 
+
 _recordNotFound:
 	pushl $PrintRecordNotFound
 	call printf
@@ -1073,14 +1082,9 @@ Consultar:
 
 	# pega o numero de quartos simples + suites
 	# e guarda em buscaQuantidadeQuartos
-	pushl	$PrintBusca
-	call	printf
-	add $4, %esp
-	pushl   $buscaQuantidadeQuartos
-	pushl   $tipoInt
-	call    scanf
-	add $8, %esp
+	call RecebeInputBusca
 
+	# 1 registro em eax, caso seja 0 quer dizer que nao há registros na memoria
 	movl firstStruct, %eax
 	cmpl $0, %eax
 	je _recordNotFound
@@ -1100,6 +1104,16 @@ Relatorio:
 	call	printf
 	add $4, %esp
 	
+
+	movl firstStruct, %eax
+_ListAllLoop:
+	cmpl $0, %eax
+	je _ListAllLoopEnd
+
+	call MostraRegistro
+	call ProximoRegistro
+	jmp _ListAllLoop
+_ListAllLoopEnd:
 
 	jmp Menu
 
