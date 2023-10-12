@@ -107,6 +107,7 @@
 	bufferMaxSize: .int 87
 
 	test: .int 0
+	stringHolder: .space 20
 
 	# check later
 	qtdRecords: .int 0
@@ -273,7 +274,6 @@ _gbsEnd:
 	popl %edx
 	popl %ecx
 	popl %ebx
-
 	RET
 
 memset:
@@ -290,6 +290,14 @@ _memsetEnd:
 	popl %esi
 	popl %ecx
 	popl %eax
+	RET
+
+
+memsetStringHolder:
+	movb $0, %al
+	movl $stringHolder, %edi
+	movl $20, %ecx
+	rep stosb
 	RET
 
 _abreArquivoRDWR:
@@ -415,6 +423,11 @@ _csisCompare:
 	jmp _csisCompare
 _csisEnd:
 	popl %eax
+	RET
+
+# copy string from esi to edi until ecx != 0
+CopyStringSelect:
+	rep movsb
 	RET
 
 
@@ -548,66 +561,130 @@ _PassaDadosParaStruct:
 # ou seja printa 3 campoos juntos
 # necessita do ponteiro para o registro em eax
 MostraRegistro:
-	pushl %eax    # nome
+	leal (%eax), %esi       # nome
+	leal stringHolder, %edi 
+	movl $20, %ecx
+	rep movsb
+
+	pushl %eax              # for backup
+	
+	pushl $stringHolder
 	pushl $MostraNome
 	call printf
-	add $4, %esp
-
-	addl $20, %eax 
+	addl $8, %esp
 	
-	pushl %eax  # celular
+	popl %eax               # for backup
+
+	addl $20, %eax
+	
+	pushl %eax
+	call memsetStringHolder
+	popl %eax
+
+	leal (%eax), %esi       # celular
+	leal stringHolder, %edi
+	movl $10, %ecx    
+	rep movsb
+	
+	pushl %eax              # for backup
+
+	pushl $stringHolder
 	pushl $MostraCelular
 	call printf
-	add $4, %esp
+	addl $8, %esp
 
-	movl 31(%eax), %ebx # tipoImovel
+	popl %eax               # for backup
+	addl $11, %eax
+	pushl %eax              # for backup
+
+	movl (%eax), %ebx       # tipoImovel
 	pushl %ebx
 	pushl $MostraImovel
 	call printf
-	add $4, %esp
+	add $8, %esp
 
-	pushl 35(%eax)  # enderecoCdd
+	popl %eax               # for backup
+	addl $4, %eax
+	pushl %eax              # for backup
+
+
+	call memsetStringHolder
+	leal (%eax), %esi       # enderecoCdd
+	leal stringHolder, %edi
+	movl $10, %ecx
+	rep movsb
+	pushl $stringHolder
 	pushl $MostraCidade
 	call printf
-	add $4, %esp
+	addl $8, %esp
 
-	pushl 45(%eax)  # enderecoBrr
+	popl %eax   		    # for backup
+	addl $10, %eax
+	pushl %eax              # for backup
+
+	call memsetStringHolder
+	leal (%eax), %esi       # enderecoBrr
+	leal stringHolder, %edi
+	movl $10, %ecx
+	rep movsb
+	pushl $stringHolder
 	pushl $MostraBairro
 	call printf
-	add $4, %esp
+	addl $8, %esp
+	
+	popl %eax               # for backup
+	addl $10, %eax
+	pushl %eax              # for backup	
 
-	movl 55(%eax), %ebx # numQuartos
+
+
+	movl (%eax), %ebx       # NumQuartos
 	pushl %ebx
 	pushl $MostraQuartos
 	call printf
-	add $4, %esp
+	add $8, %esp
 
-	movl 59(%eax), %ebx # numSuites
+	popl %eax               # for backup
+	addl $4, %eax
+	pushl %eax              # for backup
+
+	movl (%eax), %ebx # numSuites
 	pushl %ebx
 	pushl $MostraSuites
 	call printf
-	add $4, %esp
+	add $8, %esp
 
-	movl 63(%eax), %ebx # cntGaragem
+	popl %eax               # for backup
+	addl $4, %eax
+	pushl %eax              # for backup
+
+	movl (%eax), %ebx # cntGaragem
 	pushl %ebx
 	pushl $MostraGaragem
 	call printf
-	add $4, %esp
+	add $8, %esp
 
-	movl 67(%eax), %ebx # metragem
+	popl %eax               # for backup
+	addl $4, %eax
+	pushl %eax              # for backup
+
+	movl (%eax), %ebx # metragem
 	pushl %ebx
 	pushl $MostraMetragem
 	call printf
-	add $4, %esp
+	add $8, %esp
 
-	movl 71(%eax), %ebx # valorAluguel
+	popl %eax               # for backup
+	addl $4, %eax
+	pushl %eax              # for backup
+
+	movl (%eax), %ebx # valorAluguel
 	pushl %ebx
 	pushl $MostraAlugel
 	call printf
-	add $4, %esp
+	add $8, %esp
 
-	
-
+	popl %eax               # for backup
 	RET
 
 
@@ -965,17 +1042,17 @@ Consultar:
 	add $4, %esp
 
 	# pega o numero de quartos simples + suites
-	pushl	$PrintBusca
-	call	printf
-	add $4, %esp
-	pushl   $buscaQuartos
-	pushl   $tipoInt
-	call    scanf
-	add $8, %esp
+	#pushl	$PrintBusca
+	#call	printf
+	#add $4, %esp
+	#pushl   $buscaQuartos
+	#pushl   $tipoInt
+	#call    scanf
+	#add $8, %esp
 
 
-	#movl firstStruct, %eax
-	#call MostraRegistro
+	movl firstStruct, %eax
+	call MostraRegistro
 
 	call Menu
 
