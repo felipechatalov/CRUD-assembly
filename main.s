@@ -24,11 +24,11 @@
 # implementadas).
 
 
-# how to handle records?
-# |namenamename|cpfcpfcpf|...
-# use pipes to separate fields?
-# |namename\0\0|...
-# use \0 for null characters?
+# how to handle records->
+# |namenamename|celcelcel|...
+# use pipes to separate fields
+# |namename-space-space-space|...
+# use space for empty characters
 
 
 # https://syscalls32.paolostivanin.com/
@@ -111,21 +111,39 @@
 	# check later
 	qtdRecords: .int 0
 
+
+	buscaQuartos: .int 0
+
+
+
 	tipoInt: .asciz "%d"
 	tipoString: .asciz "%s"
 
 	debugInserir: .asciz "Nome: %s\nCelular: %s\nTipo do imovel: %d\nEndereco: %s, %s\nNumero de quartos: %d\nNumero de suites: %d\nContem garagem: %d\nMetragem: %d\nValor do aluguel: %d\n"
 	InputPrintEntrada: .asciz "Adicionar um novo registro, digite as informaçoes abaixo\n"
 	InputPrintNome: .asciz "Nome: "
-	InputPrintCelular: .asciz "\nCelular: "
-	InputPrintImovel: .asciz "\nTipo do imovel (0 = casa, 1 = apartamento): "
-	InputPrintCidade: .asciz "\nCidade: "
-	InputPrintBairro: .asciz "\nBairro: "
-	InputPrintQuartos: .asciz "\nNumero de quartos: "
-	InputPrintSuites: .asciz "\nNumero de suites: "
-	InputPrintGaragem: .asciz "\nContem garagem (0 = nao, 1 = sim): "
-	InputPrintMetragem: .asciz "\nMetragem: "
-	InputPrintAlugel: .asciz "\nValor do aluguel: "
+	InputPrintCelular: .asciz "Celular: "
+	InputPrintImovel: .asciz "Tipo do imovel (0 = casa, 1 = apartamento): "
+	InputPrintCidade: .asciz "Cidade: "
+	InputPrintBairro: .asciz "Bairro: "
+	InputPrintQuartos: .asciz "Numero de quartos: "
+	InputPrintSuites: .asciz "Numero de suites: "
+	InputPrintGaragem: .asciz "Contem garagem (0 = nao, 1 = sim): "
+	InputPrintMetragem: .asciz "Metragem: "
+	InputPrintAlugel: .asciz "Valor do aluguel: "
+
+	MostraNome: .asciz "Nome: %s\n"
+	MostraCelular: .asciz "Celular: %s\n"
+	MostraImovel: .asciz "Tipo do imovel: %d\n"
+	MostraCidade: .asciz "Cidade: %s\n"
+	MostraBairro: .asciz "Bairro: %s\n"
+	MostraQuartos: .asciz "Numero de quartos: %d\n"
+	MostraSuites: .asciz "Numero de suites: %d\n"
+	MostraGaragem: .asciz "Contem garagem: %d\n"
+	MostraMetragem: .asciz "Metragem: %d\n"
+	MostraAlugel: .asciz "Valor do aluguel: %d\n"
+
+	PrintBusca: .asciz "Busca por numero de quartos\n Digite o numero de quartos simples + suites"
 
 
 	printMemoriaAlocada: .asciz "[debug]Memoria alocada no endereco %x\n"
@@ -521,18 +539,87 @@ _PassaDadosParaStruct:
 	movl p_struct, %edx
 	movl %eax, 71(%edx)     #int to pos 71 in struct
 
+	RET
 
-	# last we need a pointer to the next record
 
+# dando erro
+# quando passa ponteiro para nome para printar
+# ele printa tudo ate o fim encontra um byte nulo
+# ou seja printa 3 campoos juntos
+# necessita do ponteiro para o registro em eax
+MostraRegistro:
+	pushl %eax    # nome
+	pushl $MostraNome
+	call printf
+	add $4, %esp
 
+	addl $20, %eax 
+	
+	pushl %eax  # celular
+	pushl $MostraCelular
+	call printf
+	add $4, %esp
+
+	movl 31(%eax), %ebx # tipoImovel
+	pushl %ebx
+	pushl $MostraImovel
+	call printf
+	add $4, %esp
+
+	pushl 35(%eax)  # enderecoCdd
+	pushl $MostraCidade
+	call printf
+	add $4, %esp
+
+	pushl 45(%eax)  # enderecoBrr
+	pushl $MostraBairro
+	call printf
+	add $4, %esp
+
+	movl 55(%eax), %ebx # numQuartos
+	pushl %ebx
+	pushl $MostraQuartos
+	call printf
+	add $4, %esp
+
+	movl 59(%eax), %ebx # numSuites
+	pushl %ebx
+	pushl $MostraSuites
+	call printf
+	add $4, %esp
+
+	movl 63(%eax), %ebx # cntGaragem
+	pushl %ebx
+	pushl $MostraGaragem
+	call printf
+	add $4, %esp
+
+	movl 67(%eax), %ebx # metragem
+	pushl %ebx
+	pushl $MostraMetragem
+	call printf
+	add $4, %esp
+
+	movl 71(%eax), %ebx # valorAluguel
+	pushl %ebx
+	pushl $MostraAlugel
+	call printf
+	add $4, %esp
+
+	
 
 	RET
+
+
+
+
 
 
 _iriElse:
 	movl %ebx, 75(%eax)
 	movl %eax, firstStruct
 	RET
+# necessita do pointeiro do registro em p_struct
 _insereRegistroInicio:
 	# if firstStruct == 0, then this is the first record
 	# else: insert at the start of the list
@@ -860,10 +947,9 @@ Inserir:
 	add $4, %esp
 
 	call PegarInput
-here:
 	call _AlocaMemoriaParaRegistro
-
 	call CarregaRegistroDoInputParaMemoria
+	call _insereRegistroInicio
 
 	call Menu
 
@@ -877,6 +963,20 @@ Consultar:
 	pushl	$consultarTexto
 	call	printf
 	add $4, %esp
+
+	# pega o numero de quartos simples + suites
+	pushl	$PrintBusca
+	call	printf
+	add $4, %esp
+	pushl   $buscaQuartos
+	pushl   $tipoInt
+	call    scanf
+	add $8, %esp
+
+
+	#movl firstStruct, %eax
+	#call MostraRegistro
+
 	call Menu
 
 Relatorio:
