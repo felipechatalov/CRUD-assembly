@@ -106,9 +106,10 @@
 	bufferSize: .int 0
 	bufferMaxSize: .int 87
 
+	RemoveCelularStringHolder: .space 11
 	test: .int 0
 	stringHolder: .space 20
-	RemoveCelularStringHolder: .space 11
+	
 
 	# check later
 	qtdRecords: .int 0
@@ -144,6 +145,8 @@
 	MostraGaragem: .asciz "Contem garagem: %d\n"
 	MostraMetragem: .asciz "Metragem: %d\n"
 	MostraAlugel: .asciz "Valor do aluguel: %d\n"
+
+	PrintNewLine: .asciz "\n"
 
 	PrintBusca: .asciz "Busca por numero de quartos\n Digite o numero de quartos simples + suites"
 	PrintRecordNotFound: .asciz "Registro nao encontrado\n"
@@ -298,11 +301,28 @@ _memsetEnd:
 	RET
 
 
+# memory to be erased in %edi
+# size in %ecx
+eraseStringGeneric:
+	pushl %eax
+	movb $0, %al
+	rep stosb
+	popl %eax
+	RET
+
 memsetStringHolder:
+	pushl %eax
+	pushl %edi
+	pushl %ecx
+
 	movb $0, %al
 	movl $stringHolder, %edi
 	movl $20, %ecx
 	rep stosb
+	
+	popl %ecx
+	popl %edi
+	popl %eax
 	RET
 
 _abreArquivoRDWR:
@@ -581,20 +601,18 @@ MostraRegistro:
 	addl $8, %esp
 	
 	popl %eax               # for backup
-
 	addl $20, %eax
-	
 	pushl %eax
+	
+	
 	call memsetStringHolder
-	popl %eax
-
 	leal (%eax), %esi       # celular
 	leal stringHolder, %edi
-	movl $10, %ecx    
+	movl $11, %ecx    
 	rep movsb
 	
-	pushl %eax              # for backup
-
+	#######pushl %eax              # for backup
+	
 	pushl $stringHolder
 	pushl $MostraCelular
 	call printf
@@ -614,7 +632,7 @@ MostraRegistro:
 	addl $4, %eax
 	pushl %eax              # for backup
 
-
+_MostraRegistro_endereco:
 	call memsetStringHolder
 	leal (%eax), %esi       # enderecoCdd
 	leal stringHolder, %edi
@@ -690,6 +708,10 @@ MostraRegistro:
 	call printf
 	add $8, %esp
 
+	pushl $PrintNewLine
+	call printf
+	add $4, %esp
+
 	popl %eax               # for backup
 	RET
 
@@ -720,6 +742,11 @@ CarregaRegistroDoBufferParaMemoria:
 	call _PassaDadosParaStruct
 	call _insereRegistroInicio
 	
+	#limpa buffer por garantia
+	movl bufferMaxSize, %ecx
+	leal buffer, %edi
+	call eraseStringGeneric
+
 	# caso seja o primeiro registro, nao temos um ponteiro
 	# caso tenha, entao o ultimo registro aponta para este novo
 
@@ -769,11 +796,17 @@ CarregaRegistroDoInputParaMemoria:
 	leal nome, %esi
 	leal (%eax), %edi
 	call CopyStringStringInputToStruct
+	movl $20, %ecx
+	leal nome, %edi
+	call eraseStringGeneric
 
 	# copia telefone, 11 chars
 	leal celular, %esi
 	leal 20(%eax), %edi 
 	call CopyStringStringInputToStruct
+	movl $11, %ecx
+	leal celular, %edi
+	call eraseStringGeneric
 
 	# copia tipoImovel, 4 bytes
 	movl tipoImovel, %edx
@@ -783,11 +816,17 @@ CarregaRegistroDoInputParaMemoria:
 	leal enderecoCdd, %esi
 	leal 35(%eax), %edi
 	call CopyStringStringInputToStruct
+	movl $10, %ecx
+	leal enderecoCdd, %edi
+	call eraseStringGeneric
 
 	# copia enderecoBrr, 10 chars
 	leal enderecoBrr, %esi
 	leal 45(%eax), %edi
 	call CopyStringStringInputToStruct
+	movl $10, %ecx
+	leal enderecoBrr, %edi
+	call eraseStringGeneric
 
 	# copia numQuartos, 4 bytes
 	movl numQuartos, %edx
@@ -1069,18 +1108,45 @@ Inserir:
 
 	jmp Menu
 
+_firstRecordCase:
+
+	movl 75(%eax), %ecx
+	movl %ecx, firstStruct
+	jmp _rrEnd
+
+_notFirstRecordCase:
+	movl 75(%eax), %edx
+	movl %edx, 75(%ebx)
+	jmp _rrEnd
+
 _removeRecord:
-	pushl %ebx
-	pushl $tipoString
-	call printf
-	add $8, %esp
-
 	pushl %eax
-	pushl $tipoString
-	call printf
-	add $8, %esp
+	pushl %ebx
 
-	RET
+	#pushl %ebx
+	#pushl $tipoString
+	#call printf
+	#add $8, %esp
+
+	#pushl %eax
+	#pushl $tipoString
+	#call printf
+	#add $8, %esp
+
+	popl %ebx
+	popl %eax
+
+	# caso o registro a ser removido seja o primeiro
+	# o antes dele eh 0 e o primeiro eh firstStruct
+	cmpl $0, %ebx
+	je _firstRecordCase
+	jmp _notFirstRecordCase
+_rrEnd:
+	pushl %eax
+	call free
+	add $4, %esp
+
+	jmp Menu
 
 # remove baseado no numero de celular do cadastro
 Remover:
@@ -1092,7 +1158,7 @@ Remover:
 	call RecebeInputRemove
 	
 	movl firstStruct, %eax
-
+	movl $0, %ebx
 _removeLoop:
 	cmpl $0, %eax        # caso eax seja 0 quer dizer que acabou os registros
 	je _recordNotFound
@@ -1146,6 +1212,9 @@ Relatorio:
 	call	printf
 	add $4, %esp
 	
+	pushl $PrintNewLine
+	call printf
+	add $4, %esp
 
 	movl firstStruct, %eax
 _ListAllLoop:
