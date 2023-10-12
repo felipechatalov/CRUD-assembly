@@ -720,6 +720,113 @@ _MostraRegistro_endereco:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+_iroLastRecord:
+	movl p_struct, %eax
+	movl $0, 75(%eax)      # 0 para proximo do novo, significando que nao tem proximo
+	movl %eax, 75(%ebx)    # novo para proximo do ultimo
+ 	jmp _iroEnd
+
+_iroNoRecordsOrLast:
+	cmpl $0, %ebx
+	jne _iroLastRecord
+
+	movl p_struct, %eax
+	movl $0, 75(%eax)      # 0 para proximo do novo, significando que nao tem proximo
+	movl %eax, firstStruct # primeiro registro aponta para o novo
+
+	jmp _iroEnd
+
+_iroFirstRecord:
+	movl p_struct, %eax
+	movl firstStruct, %ebx
+	movl %ebx, 75(%eax)    # novo aponta para o primeiro
+	movl %eax, firstStruct # primeiro registro aponta para o novo
+
+	jmp _iroEnd
+
+_insereOrdenado:
+	cmpl $0, %eax   # caso de nao haver registros em memoria ou ser o ultimo
+	je _iroNoRecordsOrLast
+	cmpl $0, %ebx   # caso de inserir na primeira posicao
+	je _iroFirstRecord
+
+	# caso de inserir no meio da lista
+	movl p_struct, %edx
+	movl %eax, 75(%edx) # novo aponta para proximo
+	movl %edx, 75(%ebx) # anterior aponta para novo
+
+	jmp _iroEnd
+
+
+# insere o registro em p_struct ordenado baseado em numQuartos + numSuites
+# do menor para maior 
+InsereRegistroOrdenado:
+	movl firstStruct, %eax
+	movl $0, %ebx
+_iroLoop:
+	cmpl $0, %eax        # caso eax seja 0 quer dizer que acabou os registros
+	je _insereOrdenado   # entao insere no final
+
+	pushl %eax
+	pushl %ecx
+
+	movl p_struct, %eax
+	movl 55(%eax), %edx
+	movl 59(%eax), %ecx
+	addl %ecx, %edx
+
+	popl %ecx
+	popl %eax
+
+	# compara numQuartos + numSuites
+	# caso seja menor, continua procurando
+	# caso seja maior, eh ali que inserimos
+	# CompararQuartos ->   %edx %edx eh o valor do reg que queremos inserir
+	
+	call CompararQuartos   # %eax eh o reg atual na procura
+	jg _insereOrdenado
+	movl %eax, %ebx         # salva anterior em ebx
+	call ProximoRegistro    # prox em %eax
+	jmp _iroLoop
+_iroEnd:
+	RET
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 _iriElse:
 	movl %ebx, 75(%eax)
 	movl %eax, firstStruct
@@ -740,8 +847,9 @@ _insereRegistroInicio:
 CarregaRegistroDoBufferParaMemoria:
 	call _AlocaMemoriaParaRegistro
 	call _PassaDadosParaStruct
-	call _insereRegistroInicio
-	
+	#call _insereRegistroInicio
+	call InsereRegistroOrdenado
+
 	#limpa buffer por garantia
 	movl bufferMaxSize, %ecx
 	leal buffer, %edi
@@ -865,7 +973,7 @@ ProximoRegistro:
 	movl 75(%eax), %eax
 	RET
 # compara se o registro atual em %eax tem o numero de quartos simples e suites
-# que a variavel buscaQuantidadeQuartos
+# que o valor em %edx
 CompararQuartos:
 	pushl %ebx
 	pushl %ecx
@@ -873,7 +981,7 @@ CompararQuartos:
 	movl 55(%eax), %ebx    # quartos simples
 	movl 59(%eax), %ecx    # suites
 	addl %ebx, %ecx
-	cmpl buscaQuantidadeQuartos, %ecx
+	cmpl %edx, %ecx
 	
 	popl %ecx
 	popl %ebx
@@ -1104,7 +1212,8 @@ Inserir:
 	call PegarInput
 	call _AlocaMemoriaParaRegistro
 	call CarregaRegistroDoInputParaMemoria
-	call _insereRegistroInicio
+	#call _insereRegistroInicio
+	call InsereRegistroOrdenado
 
 	jmp Menu
 
@@ -1122,16 +1231,6 @@ _notFirstRecordCase:
 _removeRecord:
 	pushl %eax
 	pushl %ebx
-
-	#pushl %ebx
-	#pushl $tipoString
-	#call printf
-	#add $8, %esp
-
-	#pushl %eax
-	#pushl $tipoString
-	#call printf
-	#add $8, %esp
 
 	popl %ebx
 	popl %eax
@@ -1191,6 +1290,7 @@ Consultar:
 	# pega o numero de quartos simples + suites
 	# e guarda em buscaQuantidadeQuartos
 	call RecebeInputBusca
+	movl buscaQuantidadeQuartos, %edx    # para usar em CompararQuartos
 
 	# 1 registro em eax, caso seja 0 quer dizer que nao há registros na memoria
 	movl firstStruct, %eax
@@ -1227,35 +1327,4 @@ _ListAllLoop:
 _ListAllLoopEnd:
 
 	jmp Menu
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
