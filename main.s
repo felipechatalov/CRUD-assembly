@@ -108,13 +108,14 @@
 
 	test: .int 0
 	stringHolder: .space 20
+	RemoveCelularStringHolder: .space 11
 
 	# check later
 	qtdRecords: .int 0
 
 
 	buscaQuantidadeQuartos: .int 0
-
+	RemoveQuantidadeQuartos: .int 0
 
 
 	tipoInt: .asciz "%d"
@@ -980,35 +981,6 @@ PegarInput:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 RecebeInputBusca:
 	pushl	$PrintBusca
 	call	printf
@@ -1020,6 +992,38 @@ RecebeInputBusca:
 	add $8, %esp
 	RET
 
+RecebeInputRemove:
+	pushl   $PrintRemove
+	call    printf
+	add $4, %esp
+
+	pushl	$RemoveCelularStringHolder
+	pushl	$tipoString
+	call	scanf
+	add $8, %esp
+	RET
+
+
+ComparaCelular:
+	pushl %esi
+	pushl %edi
+	pushl %eax
+	movl $11, %ecx
+
+	leal 20(%eax), %esi
+	leal RemoveCelularStringHolder, %edi
+_ccLoop:
+	lodsb
+	cmpb (%edi), %al
+	jne _ccEnd
+	inc %edi
+	loop _ccLoop
+_ccEnd:
+	cmpl $0, %ecx
+	popl %eax
+	popl %edi
+	popl %esi
+	RET
 
 
 
@@ -1065,10 +1069,42 @@ Inserir:
 
 	jmp Menu
 
+_removeRecord:
+	pushl %ebx
+	pushl $tipoString
+	call printf
+	add $8, %esp
+
+	pushl %eax
+	pushl $tipoString
+	call printf
+	add $8, %esp
+
+	RET
+
+# remove baseado no numero de celular do cadastro
 Remover:
 	pushl 	$removerTexto
 	call	printf
 	add $4, %esp
+
+	# salva o num de celular em RemoveCelular
+	call RecebeInputRemove
+	
+	movl firstStruct, %eax
+
+_removeLoop:
+	cmpl $0, %eax        # caso eax seja 0 quer dizer que acabou os registros
+	je _recordNotFound
+
+	# compara os num de celular do remove com cada registro
+	# remove a 1 ocorrencia do numero de celular
+	call ComparaCelular
+	je _removeRecord
+	movl %eax, %ebx         # salva anterior em ebx
+	call ProximoRegistro    # prox em %eax
+	jmp _removeLoop
+
 	jmp Menu
 
 
