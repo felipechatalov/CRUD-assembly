@@ -100,7 +100,7 @@
 
 	#check later
 	byteNull:  .int 0
-	byteSpace: .int 20
+	byteSpace: .int 32
 
 	# check later
 	testPrintFile: .asciz "Teste %d\n"
@@ -869,7 +869,8 @@ CarregarRegistrosDoDisco:
 
 
 	# open "registros.txt" for rd wr and return the file handle at 'fileHandle'
-	call AbrirArquivoParaEscrita
+	#call AbrirArquivoParaEscrita
+	call AbrirArquivoParaLeitura
 
 	# loads all records in registros.txt until 0 bytes is read
 	# which means we dont have any more records to load
@@ -953,31 +954,70 @@ CarregaRegistroDoInputParaMemoria:
 	RET
 
 
-_itcZero:
-	movb $'0', %al
+
+
+_itcLowTen:
+	cmpl $0, %ecx
+	je _lowtenEnd
+	pushl %eax
+	movb %cl, %al
+	addb $48, %al
+	stosb
+	popl %eax
+_lowtenEnd:
+	movb %dl, %al
+	addb $'0', %al
 	stosb
 	jmp _itcEnd
+
+_itcLowHundred:
+	pushl %eax
+	movb %cl, %al
+	addb $48, %al
+	stosb
+	popl %eax
+	movl $0, %ecx
+
+	cmpl $0, %edx
+	jne _pastLowHundred
+	pushl %eax
+	movb $48, %al
+	stosb
+	popl %eax
+
+_pastLowHundred:
+	cmpl $10, %edx
+	jl _itcLowTen
+	subl $10, %edx
+	incl %ecx
+	jmp _pastLowHundred
+
+_itcLowThousand:
+	subl $100, %edx
+	incl %ecx
+	cmpl $100, %edx
+	jl _itcLowHundred
+	jmp _itcLowThousand
 
 # transforma o numero em %edx em string e guarda em %edi
 IntToChar:
 
-	cmpl $0, %edx
-	je _itcZero
-
-
 	pushl %eax
 	pushl %ebx
 	pushl %ecx
+	
+	movl $0, %ecx
+	movl $0, %ebx
 
-	movl $1000, %ebx
-	movl $3, %ecx 
-_itcLoop:
-	divl %ebx
-	addl $48, %eax
-	#movb %al, (%edi)
-	stosb
-	addl $1, %edi
-	loop _itcLoop
+	cmpl $10, %edx
+	jl _itcLowTen
+
+	cmpl $100, %edx
+	jl _pastLowHundred
+
+	cmpl $1000, %edx
+	jl _itcLowThousand
+
 _itcEnd:
 	popl %ecx
 	popl %ebx
@@ -994,6 +1034,10 @@ CopiaStructParaBuffer:
 	pushl %ecx
 	pushl %edi
 	pushl %esi
+
+	leal buffer, %edi
+	movl bufferMaxSize, %ecx
+	call memset
 
 	leal buffer, %edi
 
@@ -1016,8 +1060,7 @@ CopiaStructParaBuffer:
 	stosb
 	popl %eax
 
-pint:
-
+ss:
 	addl $11, %eax
 	movl (%eax), %edx
 	call IntToChar
@@ -1046,6 +1089,7 @@ pint:
 	movb $124, %al    # 124 = '|'
 	stosb
 	popl %eax
+pint:
 
 	addl $10, %eax
 	movl (%eax), %edx
@@ -1064,6 +1108,15 @@ pint:
 	movb $124, %al    # 124 = '|'
 	stosb
 	popl %eax
+	addl $4, %eax
+	movl (%eax), %edx
+	call IntToChar
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+last:
 
 	addl $4, %eax
 	movl (%eax), %edx
@@ -1077,15 +1130,13 @@ pint:
 	addl $4, %eax
 	movl (%eax), %edx
 	call IntToChar
+final:
 
-	pushl %eax
-	movb $124, %al    # 124 = '|'
+	leal buffer, %edi
+	addl $86, %edi
+	movb $10, %al
 	stosb
-	popl %eax
 
-	addl $4, %eax
-	movl (%eax), %edx
-	call IntToChar
 
 	popl %esi
 	popl %edi
@@ -1096,9 +1147,7 @@ pint:
 
 
 
-
-
-AbrirArquivoParaEscrita:
+AbrirArquivoParaLeitura:
 	pushl %eax
 	pushl %ebx
 	pushl %ecx
@@ -1123,10 +1172,40 @@ AbrirArquivoParaEscrita:
 	popl %eax
 	RET
 
+AbrirArquivoParaEscrita:
+	pushl %eax
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+	
+
+
+	movl $5, %eax              # sys call for open
+    movl $fileName, %ebx       # file name
+    movl $01002, %ecx          # flags, read write
+    movl $0744, %edx           # permissions
+    int $0x80 
+
+    test %eax,%eax         
+    js _badfile            
+
+    movl %eax, fileHandle
+
+	popl %edx
+	popl %ecx
+	popl %ebx
+	popl %eax
+	RET
+
 
 # escreve registro salvo em buffer
 # no arquivo registros.txt
 EscreveRegistroNoDisco:
+	pushl %eax
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+
 
     movl $4, %eax              # system call for write
     movl fileHandle, %ebx      # file handle
@@ -1136,7 +1215,13 @@ EscreveRegistroNoDisco:
 
     test %eax,%eax             # check for an error, if %eax is neg
     js _badfile                # if error
-    RET
+    
+	popl %edx
+	popl %ecx
+	popl %ebx
+	popl %eax
+
+	RET
 
 
 
@@ -1153,6 +1238,7 @@ ReescreverRegistrosNoArquivo:
 	call AbrirArquivoParaEscrita
 	movl numeroTotalRegistros, %ecx
 _rraLoop:
+
 	call CopiaStructParaBuffer
 	call EscreveRegistroNoDisco
 	call ProximoRegistro
