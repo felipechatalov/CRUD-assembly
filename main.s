@@ -2,50 +2,6 @@
 # Matheus Molina    120118
 # ---------------   ######
 
-# 1. crud basico para imoveis, insercao, remocao, consulta,
-# gravar cadastro, recuparar cadastro e relatorio de registros
-# 2. lista encadeada dinamica usando malloc para armazenar registros
-# 3. registro: nome, celular, casa ou ap, endereco(cidade e bairro), num quartos
-# (simples + suites), garagem(sim ou nao), metragem total, valor do aluguel 
-# 4. consultas feitas por numero de comodos.
-# 5. relatorio deve mostrar todos registros de forma ordenada
-# 6. a remocao deve liberar o espaco de memoria alocada (pode se usar free)
-# empilhando o endereco e chamala com call
-# 7. lista encadeada manipulada em memoria e em disco, devendo todos os registros
-# serem digitados a cada execucao, ou todos eles lidos/gravados durante execucao
-# a manipulacao de disco para ler/escrever devera utilizar chamdas de sistemas,
-# sem usar bibliotecas
-# 8. com menu de opcoes
-# 9. codigo comentado
-# 10. caso tenha imoveis precadastrados, incluir no envio
-# 10. relatorio contendo: participantes, descricao dos principais modulos desenvolvidos e autoavaliação do
-# funcionamento (citar as partes que funcionam corretamente, as partes que nao
-# funcionam corretamente e sob quais circunstancias, bem como as partes que nao foram
-# implementadas).
-
-
-# how to handle records->
-# |namenamename|celcelcel|...
-# use pipes to separate fields
-# |namename-space-space-space|...
-# use space for empty characters
-
-
-# https://syscalls32.paolostivanin.com/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 .section .data
 	abertura:	.asciz	"--Controle de cadastro de imoveis--\n"
 
@@ -59,64 +15,43 @@
 	# struct para registro
 	nome:        .space  20  # 20 char's
 	celular:     .space  11  # 11 char's
-	tipoImovel:  .int 0 	 # 4 byte 0=casa, 1=ap
+	tipoImovel:  .int 0 	 # 4 bytes 0=casa, 1=ap
 	enderecoCdd: .space  10  # 10 char's
 	enderecoBrr: .space  10  # 10 char's
-	numQuartos:  .int 0
-	numSuites:   .int 0
+	numQuartos:  .int 0      # 4 bytes
+	numSuites:   .int 0      # 4 bytes
 	cntGaragem:  .int 0      # 4 ultimos bits usado para banheiro, cozinha, sala e garagem
-	metragem:    .int 0
-	valorAluguel:.int 0
-	proximoRegistro: .int 0
+	metragem:    .int 0      # 4 bytes
+	valorAluguel:.int 0 	 # 4 bytes
+	proximoRegistro: .int 0  # 4 bytes
 
-	# 1. total bytes: 80 + 44 + 4 + 40 + 40 + 4 + 4 + 4 + 4 + 4 + 4
-	# 232 bytes per record
-	# a conta 2. parece estar correta
-	# 2. total bytes: 20 + 11 + 4 + 10 + 10 + 4x6
+	# total bytes: 20 + 11 + 4 + 10 + 10 + 4x6
 	# 79 bytes
-	# prov errado a conta de bytes.
 	# 1 char = 1 byte
 	# 1 int  = 4 byte
 	p_struct: .int 0
-	# tam_struct: .int 232
 	tam_struct: .int 79
 
-	# check later
 	firstStruct: .int 0
-	currentStruct: .int 0
-	separatorPtr: .int 0
 	structByteOffset: .int 0
 	bufferByteOffset: .int 0
 
-	# check later
-	temp: .int 0
 	numeroTotalRegistros: .int 0
 
 
 	opcao: .int 0
 
-	# check later
 	ten: .int 10
 
-	#check later
-	byteNull:  .int 0
 	byteSpace: .int 32
-
-	# check later
-	testPrintFile: .asciz "Teste %d\n"
 
 	bufferSize: .int 0
 	bufferMaxSize: .int 87
-	#bufferMaxSize: .int 79
 
 	RemoveCelularStringHolder: .space 11
 	test: .int 0
 	stringHolder: .space 20
 	
-
-	# check later
-	qtdRecords: .int 0
-
 
 	buscaQuantidadeQuartos: .int 0
 	RemoveQuantidadeQuartos: .int 0
@@ -155,21 +90,17 @@
 	PrintRecordNotFound: .asciz "Registro nao encontrado\n"
 
 
-	PrintRemove: .asciz "Remover registro\nDigite o nome do registro a ser removido: "
+	PrintRemove: .asciz "Remover registro\nDigite o numero de celular do registro a ser removido: "
 
 
 	printMemoriaAlocada: .asciz "[debug]Memoria alocada no endereco %x\n"
 
 	fileName: .asciz "registros.txt"
-    testFileName: .asciz "test.txt"
 	testPrintString: .asciz "Teste %s\n"
 	testPrintInt: .asciz "Teste %d\n"
     erroGenericoArquivo: .asciz "Erro no arquivo, codigo %d\n"
 
 .section .bss
-    
-	
-	
 	.lcomm fileHandle, 4
     .lcomm testFileHandle, 4
 
@@ -354,28 +285,6 @@ _fechaArquivos:
 
 	RET
 
-_writeBufferToTestFile:
-    movl $5, %eax              # sys call for open
-    movl $testFileName, %ebx   # file name
-    movl $02002, %ecx             # flags, read write
-    movl $0744, %edx           # permissions
-    int $0x80 
-
-    test %eax,%eax         
-    js _badfile            
-
-    movl %eax, testFileHandle
-
-    movl $4, %eax              # system call for write
-    movl testFileHandle, %ebx  # file handle
-    movl $buffer, %ecx         # buffer
-    movl bufferMaxSize, %edx      # buffer length
-    int $0x80                  # call kernel
-
-    test %eax,%eax             # check for an error, if %eax is neg
-    js _badfile                # if error
-    RET
-
 # can be offseted by ebx
 _lerProximoRegistro:
     # read the next record
@@ -485,11 +394,6 @@ _PassaDadosParaStruct:
 	# using 71 bytes in total in memory
 	# ignoring ptr to the next, so we have 75 bytes in total with ptr
 
-	# p_struct always hold the last struct allocated
-	# currently passing buffer and p_struct inside the function
-	# leal buffer, %esi
-	# leal p_struct, %edi
-
 
 	# read from buffer until "|" is found
 	# in this case we reed 'name'
@@ -592,10 +496,6 @@ _PassaDadosParaStruct:
 	RET
 
 
-# dando erro
-# quando passa ponteiro para nome para printar
-# ele printa tudo ate o fim encontra um byte nulo
-# ou seja printa 3 campoos juntos
 # necessita do ponteiro para o registro em eax
 MostraRegistro:
 	pushl %eax
@@ -623,7 +523,6 @@ MostraRegistro:
 	movl $11, %ecx    
 	rep movsb
 	
-	#######pushl %eax              # for backup
 	
 	pushl $stringHolder
 	pushl $MostraCelular
@@ -728,25 +627,6 @@ MostraRegistro:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 _iroLastRecord:
 	movl p_struct, %eax
 	movl $0, 75(%eax)      # 0 para proximo do novo, significando que nao tem proximo
@@ -820,26 +700,6 @@ _iroEnd:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 CarregaRegistroDoBufferParaMemoria:
 	call _AlocaMemoriaParaRegistro
 	call _PassaDadosParaStruct
@@ -856,16 +716,11 @@ CarregaRegistroDoBufferParaMemoria:
 	RET 
 
 CarregarRegistrosDoDisco:
-	# como saber qnts registros tem?
-	# num de registros na 1 linha? 'N\n'?
-	# ou ler um registro, andar o ponteiro pra frente, ve se tem algo
-	# se tiver le prox, se n tiver para?
-	
 	# le e mantem o ponteiro no final da linha lida
 
 	# eax holds the number of bytes read by syscall 3 (read)
 	# so we can use it to know if there are any more records in txt
-	# readrecord, if readrecordbytes =!0 add record else stop loading
+	# readrecord, if readrecordbytes != 0 add record else stop loading
 
 
 	# open "registros.txt" for rd wr and return the file handle at 'fileHandle'
@@ -1060,7 +915,6 @@ CopiaStructParaBuffer:
 	stosb
 	popl %eax
 
-ss:
 	addl $11, %eax
 	movl (%eax), %edx
 	call IntToChar
@@ -1089,7 +943,6 @@ ss:
 	movb $124, %al    # 124 = '|'
 	stosb
 	popl %eax
-pint:
 
 	addl $10, %eax
 	movl (%eax), %edx
@@ -1116,7 +969,6 @@ pint:
 	movb $124, %al    # 124 = '|'
 	stosb
 	popl %eax
-last:
 
 	addl $4, %eax
 	movl (%eax), %edx
@@ -1130,7 +982,6 @@ last:
 	addl $4, %eax
 	movl (%eax), %edx
 	call IntToChar
-final:
 
 	leal buffer, %edi
 	addl $86, %edi
@@ -1143,8 +994,6 @@ final:
 	popl %ecx
 	popl %eax
 	RET
-
-
 
 
 AbrirArquivoParaLeitura:
@@ -1227,10 +1076,6 @@ EscreveRegistroNoDisco:
 
 
 
-
-
-
-
 ReescreverRegistrosNoArquivo:
 	movl firstStruct, %eax
 
@@ -1247,33 +1092,6 @@ _rraLoop:
 	# fecha o arquivo de escrita
 	call _fechaArquivos
 	RET
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1300,12 +1118,6 @@ CompararQuartos:
 	popl %ebx
 
 	RET
-
-
-
-
-
-
 
 
 
@@ -1409,35 +1221,9 @@ PegarInput:
 	call	scanf
 	add $8, %esp
 
-	# debug
-	pushl valorAluguel
-	pushl metragem
-	pushl cntGaragem
-	pushl numSuites
-	pushl numQuartos
-	pushl $enderecoBrr
-	pushl $enderecoCdd
-	pushl tipoImovel
-	pushl $celular
-	pushl $nome
-	pushl $debugInserir
-	call printf
-	addl $44, %esp
+	
 
 	RET
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1549,8 +1335,6 @@ _removeRecord:
 
 	popl %ebx
 	popl %eax
-
-
 
 	# caso o registro a ser removido seja o primeiro
 	# o antes dele eh 0 e o primeiro eh firstStruct
