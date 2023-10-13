@@ -90,6 +90,8 @@
 
 	# check later
 	temp: .int 0
+	numeroTotalRegistros: .int 0
+
 
 	opcao: .int 0
 
@@ -105,6 +107,7 @@
 
 	bufferSize: .int 0
 	bufferMaxSize: .int 87
+	#bufferMaxSize: .int 79
 
 	RemoveCelularStringHolder: .space 11
 	test: .int 0
@@ -177,7 +180,6 @@
 .globl _start
 _start:
 
-
 	# carrega os registros do txt para memoria
 	call CarregarRegistrosDoDisco
 
@@ -187,6 +189,11 @@ _start:
 
 	call 	Menu
 _fim:
+
+	# reescreve todos os registros no arquivo
+	call ReescreverRegistrosNoArquivo
+
+
 	pushl 	$0
 	call	exit
 
@@ -345,11 +352,6 @@ _fechaArquivos:
 	movl fileHandle, %ebx  # file handle
 	int $0x80              # call kernel
 
-	# if still using test write, --> remove later <--
-	movl $6, %eax          # sys call for close
-	movl testFileHandle, %ebx  # file handle
-	int $0x80              # call kernel
-
 	RET
 
 _writeBufferToTestFile:
@@ -377,7 +379,7 @@ _writeBufferToTestFile:
 # can be offseted by ebx
 _lerProximoRegistro:
     # read the next record
-	movl $87, %ecx
+	movl bufferMaxSize, %ecx
 	leal buffer, %edi
 	call memset
 
@@ -385,7 +387,7 @@ _lerProximoRegistro:
     movl $3, %eax          # sys call for read
     movl fileHandle, %ebx  # file handle
     movl $buffer, %ecx     # buffer
-    movl $87, %edx        # bytes to read
+    movl bufferMaxSize, %edx        # bytes to read
     int $0x80              # call kernel
 
     test %eax,%eax        # check for an error, if %eax is neg
@@ -450,9 +452,19 @@ _csisEnd:
 	popl %eax
 	RET
 
+
 # copy string from esi to edi until ecx != 0
 CopyStringSelect:
-	rep movsb
+	pushl %eax
+_cssLoop:
+	lodsb
+	cmpb $0, %al
+	je _cssEnd
+	stosb
+	loop _cssLoop
+_cssEnd:
+
+	popl %eax
 	RET
 
 
@@ -632,7 +644,6 @@ MostraRegistro:
 	addl $4, %eax
 	pushl %eax              # for backup
 
-_MostraRegistro_endereco:
 	call memsetStringHolder
 	leal (%eax), %esi       # enderecoCdd
 	leal stringHolder, %edi
@@ -827,6 +838,8 @@ _iroEnd:
 
 
 
+
+
 CarregaRegistroDoBufferParaMemoria:
 	call _AlocaMemoriaParaRegistro
 	call _PassaDadosParaStruct
@@ -856,20 +869,19 @@ CarregarRegistrosDoDisco:
 
 
 	# open "registros.txt" for rd wr and return the file handle at 'fileHandle'
-    call _abreArquivoRDWR
-
+	call AbrirArquivoParaEscrita
 
 	# loads all records in registros.txt until 0 bytes is read
 	# which means we dont have any more records to load
 _startRecordLoading:
 	# read next line in registros.txt
 	# number of read bytes in eax, if 0 stop loading
-here2:
+
 	call _lerProximoRegistro
 	cmpl $0, %eax
 	je _finalRecordLoading
 	call CarregaRegistroDoBufferParaMemoria
-	call _writeBufferToTestFile
+	incl numeroTotalRegistros
 	jmp _startRecordLoading
 _finalRecordLoading:
 
@@ -939,6 +951,239 @@ CarregaRegistroDoInputParaMemoria:
 	movl %edx, 71(%eax)
 	
 	RET
+
+
+_itcZero:
+	movb $'0', %al
+	stosb
+	jmp _itcEnd
+
+# transforma o numero em %edx em string e guarda em %edi
+IntToChar:
+
+	cmpl $0, %edx
+	je _itcZero
+
+
+	pushl %eax
+	pushl %ebx
+	pushl %ecx
+
+	movl $1000, %ebx
+	movl $3, %ecx 
+_itcLoop:
+	divl %ebx
+	addl $48, %eax
+	#movb %al, (%edi)
+	stosb
+	addl $1, %edi
+	loop _itcLoop
+_itcEnd:
+	popl %ecx
+	popl %ebx
+	popl %eax
+	RET
+
+
+
+
+
+# copia struct em %eax para o buffer
+CopiaStructParaBuffer:
+	pushl %eax
+	pushl %ecx
+	pushl %edi
+	pushl %esi
+
+	leal buffer, %edi
+
+	leal (%eax), %esi
+	movl $20, %ecx
+	call CopyStringSelect
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+	addl $20, %eax
+	leal (%eax), %esi
+	movl $11, %ecx
+	call CopyStringSelect
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+pint:
+
+	addl $11, %eax
+	movl (%eax), %edx
+	call IntToChar
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+	addl $4, %eax
+	leal (%eax), %esi
+	movl $10, %ecx
+	call CopyStringSelect
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+	addl $10, %eax
+	leal (%eax), %esi
+	movl $10, %ecx
+	call CopyStringSelect
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+	addl $10, %eax
+	movl (%eax), %edx
+	call IntToChar
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+	addl $4, %eax
+	movl (%eax), %edx
+	call IntToChar
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+	addl $4, %eax
+	movl (%eax), %edx
+	call IntToChar
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+	addl $4, %eax
+	movl (%eax), %edx
+	call IntToChar
+
+	pushl %eax
+	movb $124, %al    # 124 = '|'
+	stosb
+	popl %eax
+
+	addl $4, %eax
+	movl (%eax), %edx
+	call IntToChar
+
+	popl %esi
+	popl %edi
+	popl %ecx
+	popl %eax
+	RET
+
+
+
+
+
+
+AbrirArquivoParaEscrita:
+	pushl %eax
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+	
+
+
+	movl $5, %eax              # sys call for open
+    movl $fileName, %ebx       # file name
+    movl $02, %ecx          # flags, read write
+    movl $0744, %edx           # permissions
+    int $0x80 
+
+    test %eax,%eax         
+    js _badfile            
+
+    movl %eax, fileHandle
+
+	popl %edx
+	popl %ecx
+	popl %ebx
+	popl %eax
+	RET
+
+
+# escreve registro salvo em buffer
+# no arquivo registros.txt
+EscreveRegistroNoDisco:
+
+    movl $4, %eax              # system call for write
+    movl fileHandle, %ebx      # file handle
+    movl $buffer, %ecx         # buffer
+    movl bufferMaxSize, %edx   # buffer length
+    int $0x80                  # call kernel
+
+    test %eax,%eax             # check for an error, if %eax is neg
+    js _badfile                # if error
+    RET
+
+
+
+
+
+
+
+
+
+ReescreverRegistrosNoArquivo:
+	movl firstStruct, %eax
+
+	# abre arquivo para escrita
+	call AbrirArquivoParaEscrita
+	movl numeroTotalRegistros, %ecx
+_rraLoop:
+	call CopiaStructParaBuffer
+	call EscreveRegistroNoDisco
+	call ProximoRegistro
+	loop _rraLoop
+
+	# fecha o arquivo de escrita
+	call _fechaArquivos
+	RET
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1162,7 +1407,7 @@ Menu:
 	add $4, %esp
 	
 	# zera a variavel opcao para evitar conflitos
-	movl $0, opcao
+	# movl $0, opcao
 
 	pushl	$opcao
 	pushl	$tipoInt
@@ -1196,6 +1441,9 @@ Inserir:
 	call CarregaRegistroDoInputParaMemoria
 	call InsereRegistroOrdenado
 
+	incl numeroTotalRegistros
+
+
 	jmp Menu
 
 _firstRecordCase:
@@ -1215,9 +1463,6 @@ _removeRecord:
 
 	popl %ebx
 	popl %eax
-
-	# precisa remover o registro do registros.txt
-	# baseado no celular
 
 
 
@@ -1255,6 +1500,8 @@ _removeLoop:
 	movl %eax, %ebx         # salva anterior em ebx
 	call ProximoRegistro    # prox em %eax
 	jmp _removeLoop
+
+	decl numeroTotalRegistros
 
 	jmp Menu
 
