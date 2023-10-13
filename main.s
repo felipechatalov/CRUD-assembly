@@ -827,27 +827,9 @@ _iroEnd:
 
 
 
-_iriElse:
-	movl %ebx, 75(%eax)
-	movl %eax, firstStruct
-	RET
-# necessita do pointeiro do registro em p_struct
-_insereRegistroInicio:
-	# if firstStruct == 0, then this is the first record
-	# else: insert at the start of the list
-	
-	movl firstStruct, %ebx
-	movl p_struct, %eax
-
-	cmpl $0, %ebx
-	jne _iriElse
-	movl %eax, firstStruct
-	RET
-
 CarregaRegistroDoBufferParaMemoria:
 	call _AlocaMemoriaParaRegistro
 	call _PassaDadosParaStruct
-	#call _insereRegistroInicio
 	call InsereRegistroOrdenado
 
 	#limpa buffer por garantia
@@ -1212,7 +1194,6 @@ Inserir:
 	call PegarInput
 	call _AlocaMemoriaParaRegistro
 	call CarregaRegistroDoInputParaMemoria
-	#call _insereRegistroInicio
 	call InsereRegistroOrdenado
 
 	jmp Menu
@@ -1234,6 +1215,11 @@ _removeRecord:
 
 	popl %ebx
 	popl %eax
+
+	# precisa remover o registro do registros.txt
+	# baseado no celular
+
+
 
 	# caso o registro a ser removido seja o primeiro
 	# o antes dele eh 0 e o primeiro eh firstStruct
